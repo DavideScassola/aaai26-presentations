@@ -1,0 +1,556 @@
+
+\chapter{Graph-Conditional Flow Matching for Relational Data Generation}
+\label{relational_data_generation}
+
+\ChapterSummary{ This chapter addresses the generation of relational databases, where multiple tables are interconnected through foreign-key relationships. We propose a graph-conditional flow-matching approach that generates the entire database content given its relational structure. Whereas existing methods generate tables sequentially or assume independence between records, our method models the entire relational dataset jointly by leveraging a flow-matching framework conditioned on the relational graph, and a GNN-based denoiser that propagates information across related records. The method handles complex schemas, including tables with multiple parents and multiple foreign-key types between tables. Experiments on six real-world datasets using the SyntheRela benchmark demonstrate state-of-the-art fidelity of the generated data. 
+
+\vspace{2mm}
+
+This chapter is based on the original work \textit{Graph-Conditional Flow Matching for Relational Data Generation} \citep{scassola2025graph} (accepted at AAAI 2026).
+}
+
+\section{Introduction}
+
+Data has become a fundamental resource in the modern world, playing an essential role in business, research and daily life. However, privacy concerns often restrict its distribution.
+Since most data is stored in relational tables, synthetic data generation is emerging as a solution for sharing useful insights without exposing sensitive information. This approach can ensure compliance with privacy regulations such as the European Union's General Data Protection Regulation (GDPR).
+
+Tabular data synthesis \citep{ctgan, tabdiff} has been subject to research for several years. Early methods were based on Bayesian networks \citep{zhang2017privbayes}, factor graphs \citep{mckenna2019graphical} and autoregressive models \citep{nowok2016synthpop}. Most recent methods leverage the breakthroughs of deep-learning based generative models, from early latent variable models such as VAEs \citep{vae} and GANs \citep{gan}, to transformer-based autoregressive models \citep{transformer} and diffusion models \citep{ddpm}.
+
+Despite the advancements in single table synthesis, generating multiple tables characterized by foreign-key constraints is a considerably more difficult task.
+Relational datasets can be represented as large graphs, where nodes correspond to records and edges denote foreign-key relationships. This introduces a dual challenge: (1) modeling potentially complex graph structures such as tables with multiple parents, or multiple types of relationships between two tables and (2) modeling statistical dependencies between records linked directly or indirectly through foreign keys.
+
+Relational data generation \citep{sdv, gueye2022row, solatorio2023realtabformergeneratingrealisticrelational, pang2024clavaddpm} is a less mature field, with few existing methods capable of properly handling complex database structures. 
+%In \citet{xu2022synthetic}, they separately model the graph structure and then propose a method for generating the content of the relational database table-by-table.
+%The generation of each record is conditioned on graph-derived node statistics and aggregated information from connected records.
+%In concurrent work, \citet{hudovernik2024relational} follow a similar approach, generating the content of the tables using a latent diffusion model conditioned on node embeddings produced by a separate model.
+
+In this chapter, we propose a method for generating the content of a relational dataset given the graph describing its structure. Inspired by recent advancements in image generation,
+we employ flow matching to train a flow-based generative model of the content of the entire relational dataset. In order to enable information propagation across connected records, the architecture of the learned denoiser includes a graph neural network (GNN) \citep{scarselli2008graph, gnn2}. 
+This approach aims at maximizing expressiveness in modeling correlation between different records of the database, as information can be passed arbitrarily within a connected component through a GNN. Moreover, our framework is flexible as the conditioning graph can be complex, and scalable as we can generate large datasets.
+
+Using SyntheRela \citep{hudovernik2024benchmarking}, a recently developed benchmarking library, we prove the effectiveness of our method on several datasets, comparing it with several open-source approaches. Experimental results show our method achieves state-of-the-art performance in terms of fidelity of the generated data.
+
+
+\section{Relational Data Generation}
+
+Tabular data is often found in the context of relational databases, where multiple related tables are stored together.
+Tables in relational databases may include one or more columns containing foreign keys, allowing records to refer to records in other tables.
+This is done with the purpose of reducing redundancy and improving data integrity.
+
+The problem of generating synthetic relational data, or multi-table generation, is an emerging research area that aims to generate realistic synthetic data while preserving the relationships between tables.
+This task is more complex than single-table generation, as it requires modeling not only the distributions of individual tables, but also the dependencies and constraints imposed by foreign keys.
+
+A record in a table can be connected to records in one or more different tables through foreign keys, i.e., primary keys of records in other tables.
+Commonly, it is assumed that each column containing foreign keys refers to a specific table, and foreign keys cannot refer to records in the same table.
+Consequently, we propose to represent a relational database as a graph, where nodes correspond to records and edges are defined by foreign-key relationships. In particular, the resulting graph is heterogeneous, since the nodes belong to different tables and have different types of features (i.e., the fields of a record).
+
+More formally, we can define a relational database $\mathbb{D}$ as a pair $\mathbb{D}:=(\mathbb{X}, \mathbb{G})$ where $\mathbb{X}$ is a set of $K$ tables $\mathbb{X}:=\{\mathbb{T}_k\}_{k=1}^K$, where each table $\mathbb{T}_k$ is a collection of records (rows) $\myvec{x}_i^k$ sharing the same structure (columns), and $\mathbb{G}$ is a foreign-key graph defining how records are connected through foreign keys.
+We refer to $\mathbb{X}$ as the \textit{content} or the \textit{features} of the relational database, and we refer to $\mathbb{G}$ as the \textit{foreign-key graph}, \textit{topology} or \textit{structure} of the relational database.
+By convention, if a table $A$ contains foreign keys referring to records in table $B$, $A$ is called the \textit{child} table and $B$ the \textit{parent} table. We show in Figure \ref{fig:relational_db_example_schema} an example of a schema of a relational database and in Figure \ref{fig:relational_db_example_tables} an example of tables following the schema.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[page=1,width=0.6\textwidth]{images/relational_db_diagrams.pdf}
+    \caption{Example of relational database schema and tables. In this example tables \textit{Movies} and \textit{Users} are both parents of the table \textit{Reviews}. Notice the emerging graph describing the foreign-key relationships in the schema of the database.}
+    \label{fig:relational_db_example_schema}
+\end{figure}
+\begin{figure}[ht]
+    \centering
+        \includegraphics[page=2, width=0.98\textwidth]{images/relational_db_diagrams.pdf}
+        \caption{Example of tables in a relational database. The tables follow the schema described in Figure \ref{fig:relational_db_example_schema}, highlighting the foreign key relationships. The emerging foreign-key graph (in this case, relative to the records, not to the schema) is shown more explicitly in Figure \ref{fig:relational_db_example_graph_movies}.}
+        \label{fig:relational_db_example_tables}
+\end{figure}
+
+Therefore, relational data generation can be seen as a particular type of graph generation problem.
+The additional complexities in relational data generation compared to single-table generation are twofold.
+First, the generated relational dataset should have a foreign-key graph $\mathbb{G}$ that has statistical properties similar to those of the original one. Second, the dependencies between records induced by foreign keys should be preserved in the synthetic data.
+
+The difficulty of the task depends highly on the structure of the foreign-key graph.
+In the simplest case, there are only \textit{one-to-one} relationships between tables, i.e., each record in a child table refers to at most one record in a parent table, and records in a parent table are referred to by at most one record from the same child table (but they can still be referred to by many children records from distinct tables).
+% TODO: maybe add figure
+In this case, the relational database can be flattened (de-normalized) into a single table by merging child tables into their parent tables (join operation), so the problem is reduced to a single-table generation task.
+
+A more complex case is given by \textit{one-to-many} relationships, where a record in a parent table can be referred to by multiple records in a child table, but each record in a child table still refers to at most one record in a parent table. Figure \ref{fig:relational_db_example_graph_stores} shows an example of one-to-many relationships between tables.
+This corresponds to a tree-like foreign-key graph, where each parent node can have multiple child nodes, but each child node has only one parent. In this case, flattening is not possible, at least in a traditional way.
+Many methods handle this case by generating parent tables first, and then generating child tables conditioned on the generated parent records, traversing the "tree" of tables emerging from the foreign-key relationships.
+\begin{figure}[ht]
+    \centering
+    \includegraphics[page=4,width=0.45\textwidth]{images/relational_db_diagrams.pdf}
+    \caption{Example of foreign-key graph characterized by \textit{one-to-many} relationships. The table \textit{Stores} is the parent table of the other two, and arrows represent foreign-key relationships from child to parent tables. Indeed, records in children tables refer to only one parent record in the \textit{Stores} table. When inverting the direction of the arrows (from parent to children), the resulting graph is a tree. This example is taken from a database of stores \citep{walmart} that will be used later.}
+    \label{fig:relational_db_example_graph_stores}
+\end{figure}
+
+% as shown in \figref{...}. TODO: maybe add figure
+In order to generate the graph structure $\mathbb{G}$, it is possible to model the number of children per parent record, conditioning on the ancestor record features.
+
+% Related works pt1
+Many of the proposed methods for relational data generation follow this approach.
+The Synthetic Data Vault (SDV) \citep{sdv} pioneered multi‑table synthesis via the Hierarchical Modeling Algorithm (HMA), which employs Gaussian copulas and recursive conditional parameter aggregation to propagate child‐table statistics into parents.
+GAN‑based relational extensions include \citet{gueye2022row}, conditioning child‑table synthesis on parent and grandparent row embeddings, and \citet{li2023irg}, where the generation of single rows is based on GANs, but tables are generated sequentially in an autoregressive way, following the foreign‑key topology.
+Following a similar principle \citet{solatorio2023realtabformergeneratingrealisticrelational} and \citet{gulati2023tabmt} leverage instead a transformer-based autoregressive model. 
+These methods still cannot properly manage the generation of tables with multiple parents, since the number of children per parent's row depends only on one of the parents. In general, these sequential methods can only properly deal with tree-like topologies.
+
+
+Indeed, the most complex case is given by \textit{many-to-many} relationships, where a record in a child table can refer to multiple records in parent tables. Moreover, it is also possible that a child table has two different columns having foreign keys referring to the same parent table. For example, a child table "students" may have two columns "mother ID" and "father ID" referring to the same parent table "Parents". % TODO: maybe add figure
+Figure \ref{fig:relational_db_graphs} contains examples of many-to-many relationships between tables.
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[page=3, width=\textwidth]{images/relational_db_diagrams.pdf}
+        \caption{Table with multiple parent tables.}  % Added subcaption for clarity
+        \label{fig:relational_db_example_graph_movies}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \includegraphics[page=6, width=\textwidth]{images/relational_db_diagrams.pdf}
+        \caption{Table with multiple parent relationships toward the same table.}  % Added subcaption for clarity
+        \label{fig:relational_db_example_graph_articles}
+    \end{subfigure}
+    \caption{Examples of foreign-key graphs with \textit{many-to-many} relationships. The arrows represent foreign-key relationships from child to parent tables. The graph from (b) is taken from the schema shown in Figure \ref{fig:relational_db_example_tables} (inspired from the dataset \textit{MovieLens} \citep{movielens} that we will use later), illustrating a many-to-many relationship where a child table has multiple parent tables. In (c) we show a many-to-many relationship where a child table has multiple parents from the same table (inspired from the dataset \textit{CORA} \citep{cora} that we will use later). In this case the table \textit{Citations} has two different types of foreign-key relationships towards the parent table. Notice how in both cases, when inverting the direction of the arrows (from parent to children), the resulting graphs are no longer trees, so it is not possible to generate tables and records sequentially in a tree-like fashion.}
+    \label{fig:relational_db_graphs}  % Moved label AFTER caption (standard practice)
+\end{figure}
+In this case, when a child table has multiple parents it is not clear how to sample the foreign keys connecting the parents, since one cannot simply sample the number of children per parent of a single table. In other words, generating children records from parents recursively can only generate tree structures, but not arbitrary DAGs.
+One of the first works explicitly dealing with this was \citep{pang2024clavaddpm}, where to handle tables with multiple parents, they generate a version of the child table for each parent. These are then heuristically merged, by finding similar rows and selecting only one version with the union of the foreign keys. The model is based on diffusion, and the way information is propagated from parents to children is based on latent embeddings and guidance.
+
+
+More recently, the predominant approach has been to generate the entire foreign-key graph $\mathbb{G}$ independently from the content $\mathbb{X}$, in order to guarantee more flexibility and expressiveness, and to generate the content of the records only once the structure is fully determined. This also came after an increasing awareness of the "graph" nature of relational data.
+This approach was introduced in \citet{xu2022synthetic} where the graph is first generated using a statistical method that aims at preserving the degree distributions of bipartite graphs describing the connections between two tables \citep{boroojeni2017generating}.
+Then, the tables are generated in order. When a table is generated, each record is generated conditioning on connected records through aggregated information about connected records and topological information (e.g., the node degree).
+
+Despite the increasing complexity and expressiveness of these methods, they all show a common limitation: all records in the same table are generated independently from each other, conditioning at best only on connected records in other tables.
+This represents a limit when children records of the same parent are strongly correlated given the parent record. For instance, given again the example of students and parents, the birth dates of siblings are often correlated, even after conditioning on the parents' information (for example, the birth dates of siblings cannot be too close, unless they are twins).
+Concurrent work by \citet{hudovernik2024relational} also follows this approach, generating the content of the tables using a latent diffusion model conditioned on node embeddings produced by a separate model.
+
+One possible approach is to apply more general deep generative models for graphs, which do not assume any independence between nodes in the same table. However, these methods struggle to scale to large graphs, since they usually need to instantiate the entire adjacency matrix, which scales quadratically with the number of nodes \citep{zhu2022survey}. Moreover, a simple application of these methods would not exploit the particular structure of relational databases, which could be useful to improve generation quality and scalability. For example, graphs emerging from relational databases are usually multipartite and sparse. The number of edges is usually linear in the number of nodes, since each record usually has a fixed number of foreign keys referring to other records in a specific table.
+% TODO: cite graph generation methods
+
+
+
+
+\section{Method}
+
+\subsection{Graph-Conditional Generation}
+As introduced above, a relational database $\mathbb{D} = (\mathbb{X}, \mathbb{G})$ can be represented as a graph, where nodes correspond to records and edges are defined by foreign-key relationships.
+Let $\data^i$ denote the features of node $i$, and by $g^i$ the set of nodes to which $i$ is connected. Thus, we define $\mathbb{X} := \{\data^i\}_{i=1}^N$ and $\mathbb{G} := \{g^i\}_{i=1}^N$ where $N$ is the total number of records/nodes in the relational database.
+Since records are grouped into $K$ tables $\mathbb{T}_k$ sharing the same features structure, we can also write $\mathbb{X} = \{\mathbb{T}_k\}_{k=1}^K$.
+
+Several approaches have been explored for relational data generation that differ in the order in which tables and topology are generated. An approach that has been recently proven effective \citep{xu2022synthetic} is to first generate the topology and then generate the tables one by one, conditioning on the topology and on previously generated tables: 
+\begin{equation}
+    p(\mathbb{X}, \mathbb{G}) = p(\mathbb{G}) \prod_{k=1}^K p(\mathbb{T}_k \mid \mathbb{T}_{1:k-1}, \mathbb{G})
+\end{equation}
+Our approach is similar in the sense that we first generate the topology, but we generate the features contained in the tables all at once:
+\begin{equation}
+p(\mathbb{X}, \mathbb{G}) = p(\mathbb{G})p(\mathbb{X} \mid \mathbb{G})
+\end{equation}
+
+In this chapter we focus on the problem of conditional generation of the features $\mathbb{X}$ given the topology $\mathbb{G}$ of the relational database $p(\mathbb{X} \mid \mathbb{G})$.
+In this way, the method for generating the foreign-key graph is independent from the method generating the features. This modular approach has advantages, as methods for generating large graphs are often quite varied and different from deep generative models.
+Moreover, the complexity of our conditional generation method scales linearly with the size of the graph, while most methods for graph generation scale quadratically \citep{zhu2022survey}.
+Finally, a conditional generation method is useful when one is interested in anonymizing the content but not the structure of a relational dataset, when the topology is given by the user or when a model for structures is trivial to obtain.
+
+
+\subsection{Foreign-key Graph Generation}
+Since our work focuses on conditional generation of relational data content given a fixed topology, we adopt a simplified sampling approach for the foreign-key graph $\mathbb{G}$ (treating topology generation as orthogonal to our core contribution).
+For datasets where $\mathbb{G}$ has a large connected component, containing most or all nodes, we just keep the original topology $\mathbb{G}$. Otherwise, we build a new topology by sampling with replacement the connected components of $\mathbb{G}$ \citep{hudovernik2024relational}.
+This method could be replaced by a dedicated graph sampler as in \citet{xu2022synthetic}, which we consider an interesting direction for future work.
+We remark that the subject of this chapter is the conditional generation of the content given the foreign-key graph. An advantage of this approach is its modularity, as this method can be combined with any pure graph generation approach.
+Moreover, resampling the connected components has concrete applications, for instance, when all the observed topologies are well-represented in the training data. 
+
+\subsection{Generative Modeling from Single-Sample Data}
+
+We propose to learn a conditional generative model $p(\mathbb{X} \mid \mathbb{G})$ for the whole set of features $\mathbb{X}$, since in principle, it cannot always be decomposed into several independently and identically distributed (i.i.d.) samples, that in this case would correspond to the connected components of the graph.
+For example, in the MovieLens dataset \citep{movielens}, almost all records belong to the same connected component.
+Single-sample scenarios are common in large graph generation problems (e.g., social networks).
+Time series are another example where identifying i.i.d. samples is problematic.
+Nevertheless, successful modeling when disposing of only one sample remains feasible when the single sample is composed of weakly interacting components.
+This is the case of relational data, where records are usually not strongly dependent on all other records belonging to the same connected component.
+Moreover, the graph is sparse since the number of foreign keys is proportional to the number of records.
+Our method exploits structural regularities to enable effective learning from what is essentially a single sample $\mathbb{D}=(\mathbb{X}, \mathbb{G})$ from a high-dimensional joint distribution.
+
+In order to avoid the trivial solution where the model simply learns to reproduce the only available training sample $\mathbb{X}$, we have to carefully handle overfitting. This ensures the generative model generalizes and learns meaningful regularities in the data rather than merely learning to copy the specific instance.
+
+The main motivation for this approach was to develop a maximally expressive generative model for tabular data, addressing the limitations of existing methods.
+In practice, we achieve this by learning a flow using a modular architecture for the denoiser. This is composed of one denoiser for each table and a GNN. The GNN computes node embeddings for each record, encoding context information. Then, node embeddings are passed to the table-specific denoisers. In this way, the denoising process of each record is made dependent on the other connected records.
+
+\subsubsection{Graph-Conditional Flow Matching}
+
+In order to model $p(\mathbb{X} \mid \mathbb{G})$ using flow matching, we have to define the conditional flow $p_t(\mathbb{X}_t \mid \mathbb{X}_1, \mathbb{G})$.
+We use the optimal transport conditional flow described in Section \ref{background:fm_ot} as conditional flow $p_t(\data^i_t \mid \data_1^i)$, independent for each node $\data^i_t \in \mathbb{X}$ and for each component of a node (for each field of each record).
+We refer to the relative conditional velocity as $u_t(\mathbb{X}_t \mid \mathbb{X}_1)$. This also holds for categorical components of features $\data^i$, which are encoded in continuous space using one-hot encodings \citep{eijkelboom2024variational}. Notice that this conditional flow does not depend on the topology $\mathbb{G}$, so we can refer to it as $p_t(\mathbb{X}_t \mid \mathbb{X}_1)$.
+The objective is to learn the marginal velocity of the whole relational dataset $v_t(\mathbb{X}_t \mid \mathbb{G})$. 
+We learn this using the variational parametrization discussed above:
+\begin{equation}
+p_\theta(\mathbb{X}_1 \mid \mathbb{X}_t, \mathbb{G}) \approx q(\mathbb{X}_1 \mid \mathbb{X}_t, \mathbb{G}) 
+\end{equation}
+Thus, the training loss is the following:
+\begin{equation}
+    \mathcal{L}(\theta) = \mathbb{E}_{t \sim U(0,1), \mathbb{X}_t \sim p_t (\mathbb{X}_t \mid \mathbb{X}_1 )} \left[ - \log p_\theta(\mathbb{X}_1 \mid \mathbb{X}_t, \mathbb{G}) \right]
+\end{equation}
+Where $(\mathbb{X}_1, \mathbb{G})$ is the original relational dataset. Since the relational dataset $\mathbb{D} =(\mathbb{X}, \mathbb{G})$ is both the dataset and the only sample, using this loss corresponds to doing full-batch training.
+However, it is also possible to write the loss as an expectation over the different connected components of $\mathbb{D}$ when possible.
+Finally, the velocity used at generation time is the following:
+\begin{equation}
+\label{eq:rd_velocity}
+    v_t^\theta(\mathbb{X}_t, \mathbb{G}) = \mathbb{E}_{\mathbb{X}_1 \sim p_\theta(\mathbb{X}_1 \mid \mathbb{X}_t, \mathbb{G})} \left[ u_t(\mathbb{X}_t \mid \mathbb{X}_1, \mathbb{G}) \right]
+\end{equation}
+
+
+\subsubsection{Variational Parametrization}
+Let $x^{k,d,j}$ be the $j$-th value of column $d$ of table $k$, then we can write
+\begin{equation}
+\mathbb{X}_t = \left\{ x^{k,d, j} \;\middle|\; 
+k = 1, \dots, K;\; 
+d = 1, \dots, D_k;\; 
+j = 1, \dots, N_k
+\right\}
+\end{equation}
+where $D_k$ and $N_k$ are respectively the number of columns and records in table $k$.
+We use a fully factorized distribution as variational approximation.
+This means that the distribution factorizes into an independent distribution for each component $x^{k,d,j}$.
+%of each feature node $\data^i$. Every component $x^{k,d,j}$ of $\data^i$ is characterized by the table $k \in K$ it belongs to, containing $N_k$ records, and its column $d \in D_k$ where $D_k$ is the set of columns of table $k$. 
+Therefore we can write the variational approximation as
+\begin{equation}\label{eq:denoiser}
+    p_\theta(\mathbb{X}_1 \mid \mathbb{X}_t, \mathbb{G}) = \prod_{k=1}^K \prod_{ d=1}^{D_k} \prod_{ j=1}^{N_k} p^{k,d}_\theta (x_1^{k,d, j} \mid \mathbb{X}_t, \mathbb{G})
+\end{equation}
+where $p^{k,d}$ represents the variational factor corresponding to column $d$ of table $k$.
+
+Depending on the nature of variable $x^{k,d, j}$, continuous or categorical, we parametrize a different distribution $p^{k,d}$.
+In both cases, the distribution is parametrized by a trainable neural network denoiser composed of two modules:
+\begin{enumerate}
+\item A graph neural network $\eta_{\theta_1}$ that computes node embeddings $\boldsymbol{\varepsilon}^i_t = \eta_{\theta_1}(\mathbb{G}, \mathbb{X}_t)^i$ for each node $\data^i$, encoding context information.
+\item Feedforward neural networks $f^{k,d}_{\theta_2}(x^{k,d, j}_t, t, \boldsymbol{\varepsilon}^i_t)$ using noisy records $x^{k,d, j}_t$, time (noise level) $t$, and node embeddings $\boldsymbol{\varepsilon}^i_t$ to parametrize the distribution $p^{k,d}$.
+\end{enumerate}
+
+\paragraph{Categorical Variables.}
+When component $x^{k,d,j}$ is categorical, we use a categorical distribution:
+\begin{equation}
+    p^{k,d}_\theta (x^{k,d, j}_1 \mid \mathbb{X}_t, \mathbb{G}) = \mathrm{Categorical} \left(x^{k,d, j}_1 \mid  \mathbf{p}=f^{k,d}_{\theta_2}(x^{k,d, j}_t, t, \boldsymbol{\varepsilon}^i_t) \right)
+\end{equation}
+For categorical variables, the last layer is a softmax function and training corresponds to training a neural network to classify $x^{k,d, j}_1$ using cross-entropy loss.
+
+\paragraph{Continuous Variables.}
+When component $x^{k,d,j}$ is a real number, we use the same architecture to parametrize the mean of a normal distribution with unit variance:
+\begin{equation}   
+    p_\theta(x^{k,d,j}_1 \mid \mathbb{X}_t, \mathbb{G}) = \mathcal{N}(x^{k,d,j}_1 \mid \mu=f^{k,d}_{\theta_2}(x^{k,d,j}_t, t, \boldsymbol{\varepsilon}^i_t), \sigma=1)
+\end{equation}
+In this case training corresponds to training a neural network regressor to predict $x^{k,d,j}_1$ using the squared error loss. We use a fixed unit variance since learning the mean is sufficient to correctly parametrize the velocity field \citep{eijkelboom2024variational}. This worked well in practice, but learning the variance or using more sophisticated functions $\sigma_t$ could be an interesting direction for future work.
+
+\paragraph{Velocity Computation.} The velocity for each component $x^{k,d,j}$ at time $t$ follows from Equations \ref{eq:ot_velocity} and \ref{eq:rd_velocity}:
+\begin{equation}
+    v^\theta_t(x^{k,d,j} \mid \mathbb{X}_t, \mathbb{G}) = \frac{\mathbb{E}_{x^{k,d,j}_1 \sim p_\theta^{k,d}(x_1^{k,d, j} \mid \mathbb{X}_t, \mathbb{G})} [x_1^{k,d, j}] - (1-\sigma_{\min}) x^{k,d,j}}{1 - (1-\sigma_{\min}) t}
+\end{equation}
+Since we directly parametrize the mean of the distribution in both the categorical and the continuous case, we can just plug in the output of the denoiser:
+\begin{equation}
+\label{eq:x_velocity}
+    v^\theta_t(x^{k,d,j} \mid \mathbb{X}_t, \mathbb{G}) = \frac{ f^{k,d}_{\theta_2}(x^{k,d, j}_t, t, \boldsymbol{\varepsilon}^i_t)-(1-\sigma_{\min}) x^{k,d,j}}{1-(1-\sigma_{\min}) t}
+\end{equation}
+Recall that $x^{k,d,j}$ can be either a continuous variable or a one-hot-encoded categorical variable. In the latter case, both $x^{k,d,j}$ and $v^\theta_t(x^{k,d,j} \mid \mathbb{X}_t, \mathbb{G})$ are vectors.
+
+%Alternatively, one can directly parametrize the velocity field as in \citet{flow_matching}:
+%\begin{equation}
+%    v^\theta_t(x^{k,d,j} \mid \mathbb{X}, \mathbb{G}) = f^{k,d}_\theta(x^{k,d,j}_t, t, \eta_{\theta_1}(\mathbb{G}, \mathbb{X}_t)^i)
+%\end{equation}
+%In this case training corresponds to training a neural network regressor to directly predict the conditional velocity $u_t(x^{k,d,j} \mid x^{k,d,j}_1)=\frac{x^{k,d,j}_1-(1-\sigma_{\min}) x^{k,d,j}}{1-(1-\sigma_{\min}) t} = x^{k,d,j}_1 - (1 -\sigma_{\min})x^{k,d,j}_0$ using the squared error loss.
+
+\paragraph{Architecture.} Notice that the neural network $f_{\theta_2}^{k,d}$ is specific to column $d$ of table $k$.
+In particular, we use a different multi-layer perceptron for each table $k$, with a prediction head (the last linear layer) for every component $d$.
+The inputs of $f_{\theta_2}^{k,d}$: the features $x^{k,d,j}$, the noise level $t$ and the node embeddings $\boldsymbol{\varepsilon}^i_t$, are concatenated and flattened in order to be fed to the MLP.
+
+Instead, the neural network $\eta_{\theta_1}$ computing node embeddings $\boldsymbol{\varepsilon}^i_t =\eta_{\theta_1}(\mathbb{G}, \mathbb{X}_t)^i$, refers to a single GNN supporting heterogeneous graph data, i.e., graphs with multiple types of nodes, and as a consequence, different types of edges.
+We experimented with two architectures, one based on GIN \citep{xu2018powerful} and one based on GATv$2$ \citep{brody2021attentive}.
+In order to build a GNN compatible with heterogeneous graphs, we take an existing GNN model and use a dedicated GNN layer for each edge type, as shown in the documentation of the torch-geometric library \citep{pytorch_geometric_hetero}. The messages produced by each edge-specific layer need to be of the same dimension, so that they can be summed together to obtain a node embedding.
+A detailed description of the employed GNN architectures is provided in Appendix \ref{app:details}.
+Figure \ref{fig:cartoon} shows an overview of the denoiser's architecture.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{articles/graph_conditional_flow_matching/images/cartoon_h2.pdf}
+    \caption{Overview of the architecture of the denoiser for relational data. A relational dataset composed of multiple tables can be seen as a graph, where records are the nodes and foreign keys are the edges. The denoiser takes as input a relational dataset where noise was added to each record with noise level $t$. Firstly, a graph neural network (GNN) processes the entire graph and computes node embeddings $\boldsymbol{\varepsilon}^i_t$ encoding context information for each record. Each record and its corresponding embedding are then processed independently by table-specific multi-layer perceptrons (MLPs), which predict the original clean records ($t=1$).
+    }
+    \label{fig:cartoon}
+\end{figure*}
+
+\subsubsection{Computational Complexity}
+Similarly to generative models for single-table data, the complexity of both training and generation of this method scales linearly with the number of records in the relational dataset.
+First of all, the computational complexity of each layer of the GNN scales linearly with the number of edges. In a relational dataset the total number of foreign keys is proportional to the number of records, since each record (node) has a fixed number of foreign keys (edges). Consequently, the GNN's computational complexity is linear with the number of records.
+Second, the multi-layer perceptrons are applied independently to each record, meaning their computational complexity also scales linearly and can be efficiently parallelized.
+
+
+
+\subsubsection{Implementation Details}
+
+\paragraph{Data Preprocessing.}
+Following \citet{tabddpm}, during the preprocessing phase we transform continuous features using quantile normalization, so that all marginals of continuous features will be normally distributed.
+In order to handle missing data in numerical columns, we augment the tables by including an auxiliary column containing binary variables indicating if the data is missing, and we fill missing values with the mean. This allows us to preserve the information about missing data, and replicate missing data patterns in the generated samples. For categorical columns with missing data, we simply include a new category "NaN".
+Tables that contain only foreign-key columns (and no features) are considered only when computing node embeddings.
+Time embedding is implemented according to \citet{dhariwal2021diffusion}.
+
+\paragraph{Training.}
+In order to perform early stopping and avoid overfitting, we randomly split nodes into a training and validation set, computing the loss only on training nodes.
+The experimental results report performance relative to models achieving the best validation loss during training.
+
+We performed full-batch training, as the entire dataset and the denoiser's computations could be fitted into memory.
+This implies all records could be denoised in parallel.
+In principle, one can also use batches corresponding to connected components of the graph.
+For scenarios involving significantly larger datasets, where the graph or the GNN computations exceed available memory, one could employ mini-batching techniques for GNNs, or strategies for scaling to out-of-memory graphs.
+
+We observed relatively short training time: for the largest dataset, training took less than $20$ minutes on a single GPU (see Appendix \ref{app:computational_resources} for more details), for the other datasets just a few minutes.
+We summarize in Algorithm \ref{alg:training} the graph-conditional training algorithm\footnote{In practice, we used a fixed set of equally spaced values for the noise level $t$, instead of sampling it from a uniform distribution.}.
+
+\begin{algorithm}[tbh]
+\caption{Graph-Conditional Flow Matching Training}
+\label{alg:training}
+\textbf{Input}: $\mathbb{D} = (\mathbb{X}, \mathbb{G})$\\
+\textbf{Parameter}: Number of iterations $n$\\
+\textbf{Output}: Model parameters $\theta$
+\begin{algorithmic}[1] %[1] enables line numbers
+
+\For{$i = 0$ \textbf{to} $n$}
+  \State Sample connected component $\mathbb{D} = (\mathbb{X}_1, \mathbb{G})$ from training set
+  \State Sample $t \sim U(0,1)$
+  \State Sample $\mathbb{X}_t \sim p_t(\mathbb{X}_t \mid \mathbb{X}_1)$
+  \State Compute loss $\mathcal{L}(\theta) = - \log p_\theta(\mathbb{X}_1 \mid \mathbb{X}_t, \mathbb{G})$ \hfill Eq.~(\ref{eq:denoiser})
+  \State Update parameters $\theta$ using $\nabla_\theta \mathcal{L}(\theta)$
+\EndFor
+
+\State \textbf{return} $\theta$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Generation.}
+To solve the ODE generating the data, we used the Euler integration method with 100 steps. In our experiments the generation process was relatively fast: for the largest dataset we experimented with, the generation process took less than 10 seconds. We summarize in Algorithm \ref{alg:sampling} the graph-conditional generation algorithm.
+
+\begin{algorithm}[tbh]
+\caption{Graph-Conditional Flow Matching Generation}
+\label{alg:sampling}
+\textbf{Input}: $\mathbb{G} \sim p(\mathbb{G})$\\
+\textbf{Parameter}: Number of steps $T$\\
+\textbf{Output}: Samples $(\mathbb{X}_1, \mathbb{G})$
+\begin{algorithmic}[1] %[1] enables line numbers
+\State Sample $\mathbb{X}_0 \sim \mathcal{N}(0,I)$
+%\State $h = \frac{1}{T}$
+\For{$t = 0$ \textbf{to} $1$ \textbf{step} $\frac{1}{T}$}
+  \State $x_{t+\frac{1}{T}}^{k,d,j} = x_t^{k,d,j} + \frac{1}{T} v^\theta_t(x_t^{k,d,j} \mid \mathbb{X}_t, \mathbb{G})$ \hfill Eq.~(\ref{eq:x_velocity})
+\EndFor
+
+\State \textbf{return} $(\mathbb{X}_1, \mathbb{G})$
+\end{algorithmic}
+\end{algorithm}
+
+% Hyperparameters
+\paragraph{Hyperparameters.}
+In our experiments, we tuned hyperparameters to some extent depending on the dataset.
+These primarily include neural network parameters, such as the number of layers and the number of hidden units in feedforward layers.
+The size of the node embeddings is also a key hyperparameter.
+Tuning this value was important to balance expressiveness and overfitting, as overly large embeddings can lead the model to memorize structures.
+Across all experiments, we constrained the embedding size to values between 2 and 10.
+In Appendix \ref{app:details} we discuss how the validation loss changes as a function of this hyperparameter for two of the datasets.
+
+
+
+
+
+
+
+
+
+
+
+\section{Experiments}
+
+\subsection{Experimental Settings}
+We evaluate our method using SyntheRela \citep{hudovernik2024benchmarking}  (Synthetic Relational Data Generation Benchmark), a recently developed benchmark library for relational database generation.
+This tool enables comparison of synthetic data fidelity (i.e., similarity to original data) across multiple open-source generation methods and various datasets.
+
+\paragraph{Datasets.}
+We experiment with six real-world relational datasets: AirBnB \citep{airbnb}, Walmart \citep{walmart}, Rossmann \citep{rossmann}, Biodegradability \citep{biodegradability}, CORA \citep{cora} and the IMDb MovieLens dataset \citep{movielens}, a commonly used dataset to study graph properties, containing users' ratings of different movies.
+The last three datasets have tables with multiple parents. AirBnB, Walmart and Rossmann were subsampled in order to enable comparison with other methods.
+More details are provided in Appendix \ref{app:datasets}.
+
+
+\paragraph{Metrics.}
+Our primary objective is generating high-fidelity synthetic relational data.
+To evaluate fidelity, we adopt a discriminator-based approach where an XGBoost classifier \citep{xgboost} (often the preferred classifier for tabular data) is trained to distinguish real from synthetic records.
+Lower discriminator accuracy indicates higher synthetic data quality, with an accuracy of $0.5$ implying indistinguishability.
+While this is straightforward for single-table datasets, where the input of the discriminator is a single row, this is not the case for relational data.
+For relational data, we use the SyntheRela library's Discriminative Detection with Aggregation (DDA) metric, which extends single-table discrimination by enriching the content of the rows of parent tables with aggregate information from its "child" rows.
+In particular, they add to each row of a parent table the count of children, the mean of real-valued fields of children and the count of unique values of categorical value fields. 
+We believe that discriminator-based metrics are a simple, concise and powerful way to evaluate the fidelity of synthetic data.
+We compare our method against those present in the SyntheRela library, which are the leading open-source approaches for relational data generation.
+
+\subsection{Results}
+We generate synthetic data for six of the datasets included in the SyntheRela library, and compare it with other relational data generation methods.
+In particular, we measure the accuracy of an XGBoost discriminator in the setting described above.
+Table \ref{tab:results} shows the average accuracy across different runs for each combination of dataset and method when possible.
+Where the dataset has multiple parent tables, the highest accuracy is reported.
+
+Our method generally outperforms all baselines, often by a large margin.
+Moreover, it is applicable to all relational datasets considered, as it can handle complex schema structures, including tables with multiple parent tables, multiple foreign keys referencing the same table, and missing data.
+Missing results for some baselines are due to their limitations: ClavaDDPM cannot synthesize CORA and Biodegradability, as it only supports a single foreign-key relation between two tables, REaLTabF does not support tables with multiple parents and SDV fails to synthesize the IMDB dataset due to scalability issues \citep{hudovernik2024benchmarking}.
+The performance metrics for other methods are taken from \citet{hudovernik2024relational}, where the SyntheRela library was also used for fidelity evaluation.
+Variability in the reported results is due to different initialization seeds used both for training and generation.
+
+To assess the impact of the embeddings produced by the GNN, we evaluate the performance of our method when the embeddings are ablated.
+This corresponds to training separate single-table models for each table.
+The results were negatively affected, with the only exception being the CORA dataset.
+Nevertheless, we observed that ablating the GNN always led to a significant increase in validation loss, thus suggesting potential limitations of the discriminative metric in evaluating certain datasets.
+
+\begin{table*}[ht]
+\centering
+\caption{Average accuracy with standard deviation of an XGBoost multi-table discriminator using rows with aggregated statistics. For datasets with multiple parent tables, the highest accuracy was selected. The CORA dataset is the only one for which using GNN embeddings does not improve the evaluation metric. However, we noticed that the simple post-processing step consisting of removing duplicated records from a child table ($\approx 3\%$ of records), allowed us to obtain a performance of $\approx 0.50$. Moreover, we observed a lower validation loss when the GNN was used. Statistics are computed over three different runs.}
+\scriptsize
+\begin{tabular}{lcccccc}
+\toprule
+ & \textbf{AirBnB} & \textbf{Biodegradability} & \textbf{CORA} & \textbf{IMDB} & \textbf{Rossmann} & \textbf{Walmart}\\
+\midrule
+Ours & $\mathbf{0.58 \pm 0.03}$ & $\mathbf{0.59 \pm 0.02}$ & $0.63 \pm 0.02$ & $\mathbf{0.59 \pm 0.03}$ & $\mathbf{0.51 \pm 0.01}$ & $\mathbf{0.73 \pm 0.01}$ \\
+Ours (no GNN) & $0.70 \pm 0.005$ & $0.86 \pm 0.004$ & $0.62 \pm 0.004$ & $0.89 \pm 0.002$ & $0.75 \pm 0.01$ & $0.91 \pm 0.04$ \\
+\citet{hudovernik2024relational} & $0.67 \pm 0.003$ & $0.83 \pm 0.01$ & $\mathbf{0.60 \pm 0.01}$ & $0.64 \pm 0.01$ & $0.77 \pm 0.01$ & $0.79 \pm 0.04$ \\
+%ACTGAN & $\approx 1$ & $0.87 \pm 0.003$ & $0.63 \pm 0.003$ & $0.90 \pm 0.005$ & $0.90 \pm 0.003$ & $\approx 1$ \\
+ClavaDDPM & $\approx 1$ & - & - & $0.83 \pm 0.004$ & $0.86 \pm 0.01$ & $0.74 \pm 0.05$ \\
+%LSTM & $\approx 1$ & $0.95 \pm 0.08$ & $0.73 \pm 0.03$ & -- & $0.82 \pm 0.05$ & $0.98 \pm 0$ \\
+%MOSTLYAI & $\approx 1$ & $0.94 \pm 0.02$ & -- & $\approx 1$ & $0.90 \pm 0.006$ & $0.96 \pm 0.03$ \\
+RCTGAN  & $0.98 \pm 0.001$ & $0.88 \pm 0.01$ & $0.73 \pm 0.01$ & $0.95 \pm 0.002$ & $0.88 \pm 0.01$ & $0.96 \pm 0.02$ \\
+REaLTabF. & $\approx 1$ & - & - & - & $0.92 \pm 0.01$ & $\approx 1$ \\
+SDV & $\approx 1$ & $0.98 \pm 0.01$ & $\approx 1$ & - & $0.98 \pm 0.003$ & $0.90 \pm 0.03$ \\
+%help & -- & -- & $0.68 \pm 0.008$ & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+%$0.45  \pm 0.01$.}
+\label{tab:results}
+
+\end{table*}
+
+
+\paragraph{Privacy Evaluation.}
+We evaluated potential privacy leaks in each table, where parent tables were enriched with aggregated information as previously described.
+In order to do this, we use a DCR-based privacy evaluation methodology \citep{tablegan, dcr3, quantile1, quantile3, palacios2025contrastive}.
+In particular, we follow the methodology previously described in Section \ref{sec:tabular_data_generation}.
+%For each table, we computed the distance-to-closest-record (DCR) \citep{tablegan, dcr3} of each synthetic and real record comparing to a hold-out set of real records.
+We consider a synthetic table to exhibit privacy leakage if the percentage of its DCRs falling below the $\alpha$-percentile of the DCRs of real data is significantly greater than $\alpha$ \citep{quantile1, quantile3}.
+%Intuitively, this indicates that synthetic records are close to real records more often than expected, suggesting a potential privacy risk.
+As shown in Table~\ref{tab:privacy_results}, when considering the $2\%$ percentile this percentage ($p_{\leq2\%}$) remains close to the expected value of $2\%$. The privacy score \citep{palacios2025contrastive}, a derived statistic that takes a value of zero (or slightly lower) when no privacy risk is detected and one when all synthetic records are deemed risky, is consistently close to zero, indicating negligible privacy risk in the content of the synthetic relational data.
+\begin{table*}[ht]
+
+\centering
+\caption{Privacy results for tables having at least 100 records, at least 2 columns (after aggregation) and no more than 10\% of real DCRs equal to zero. Statistics are computed over three different runs.}
+\label{tab:privacy_results}
+\small
+
+
+\begin{tabular}{l l r r c r}
+\toprule
+\textbf{Dataset} & \textbf{Table} & \textbf{Records} & \textbf{Features} & $\mathbf{p_{\leq2\%}}$ & \textbf{Privacy Score} \\
+\midrule
+\multirow{1}{*}{AirBnB} 
+  & users    & $10,000$  & $22$ & $1.95\% \pm 0.08\%$ & $-0.0005 \pm 0.001$ \\
+
+\cmidrule(lr){1-6}
+\multirow{1}{*}{Biodegradability} 
+  & molecule & $328$     & $6$  & $0.00\% \pm 0.00\%$ & $-0.02 \pm 0.000$ \\
+
+\cmidrule(lr){1-6}
+\multirow{2}{*}{IMDB MovieLens} 
+  & movies   & $3,832$   & $11$ & $2.44\% \pm 0.04\%$ & $0.005 \pm 0.000$ \\
+  & users    & $6,039$   & $6$  & $2.29\% \pm 0.21\%$ & $0.003 \pm 0.002$ \\
+
+\cmidrule(lr){1-6}
+\multirow{1}{*}{Rossmann} 
+  & store    & $1,115$   & $17$ & $2.94\% \pm 0.26\%$ & $0.01 \pm 0.003$ \\
+
+\cmidrule(lr){1-6}
+\multirow{2}{*}{Walmart} 
+  & depts    & $15,047$  & $5$  & $1.01\% \pm 0.04\%$ & $-0.01 \pm 0.000$ \\
+  & features & $225$     & $12$ & $1.33\% \pm 1.93\%$ & $-0.007 \pm 0.020$ \\
+  %& stores   & 45      & 16 & $5.65\% \pm 4.19\%$ & $0.037 \pm 0.04$ \\
+
+\bottomrule
+\end{tabular}
+
+
+\end{table*}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Limitations}
+
+\paragraph{Foreign-key Graph Generation.}
+As this method permits the generation of the content of a relational dataset, but not the foreign-key graph, it has to be combined with a graph generation algorithm in order to properly generate novel relational data.
+However, we think separating the two problems is a promising approach.
+For example, in \citet{xu2022synthetic} they use a statistical method to generate the graph. We follow the same simple approach of \citet{hudovernik2024relational} for sampling the graphs, that is resampling the original connected components. This could potentially raise a privacy issue related to the leaked structure, which is, however, outside the scope of this chapter, as we aim at building an effective generative model conditioning on a given foreign-key graph. Nevertheless, we did not observe any privacy leaks in the analysis of parent tables enriched with aggregated information. Moreover, structures are often over-represented in training data.
+
+\paragraph{Scaling.}
+Our method requires a GNN to process whole connected components. This is potentially problematic when these are very large. There are many approaches to deal with this such as advanced batching strategies, graph partitioning, or out-of-core processing. Nevertheless, in our case it was never an issue, as we were able to fit the whole datasets into memory. So the computational complexity of our method scales linearly with the size of the largest connected component.
+In theory, oversmoothing could also be an issue when very deep GNNs are used \citep{li2018deeper, oono2020graph}. However, in our experiments we did not need very deep GNNs (between 2 and 3 message passing layers). We hypothesize that the iterative denoising process itself helps propagate information across distant nodes.
+
+\paragraph{Hyperparameters.}
+Our method is relatively sensitive to the size of the embedding produced by the GNN, which has to be tuned for each dataset in order to achieve a good trade-off between expressiveness and overfitting.
+Like other generative models, our approach requires dataset-specific hyperparameter tuning, particularly the depth and width of the employed neural networks, to adapt to the training data size and avoid overfitting.
+Although the architecture we used is relatively simple, we were able to achieve state-of-the-art performance. Therefore, we believe there is significant room for improvement through more sophisticated model design.
+This work focuses on the method for training a flexible and powerful generative model for relational data, rather than on the specific architecture of the denoiser.
+
+\section{Discussion}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+We proposed a novel approach for generating relational data, given the graph describing the foreign-key relationships of the datasets.
+Our method uses flow matching to build a generative model of the whole content of a relational dataset, exploiting a GNN to increase the expressiveness of the denoiser, by letting information flow across connected records.
+Our method achieves state-of-the-art performance in terms of synthetic data fidelity across several datasets, outperforming other open-source methods in the SyntheRela benchmark library.
+Moreover, we did not observe any privacy leakage in the generated synthetic tables, even when parent records were enriched with aggregated statistics from their child tables.
+
+\paragraph{Concurrent Work.}
+Concurrent and independent work by \citet{hudovernik2024relational} shares similarities with ours. Data generation is based on latent diffusion, conditioned on a pre-generated graph by node embeddings encoding topological and neighborhood information, computed using a GNN.
+Our work differs in three aspects: (1) we employ flow matching rather than latent diffusion; (2) our GNN is integrated into the denoiser, so it is trained end-to-end, whereas theirs uses embeddings precomputed independently from the generative models of the records; (3) we generate tables in parallel rather than sequentially.
+
+\paragraph{Future Works.}
+An interesting direction of development is the combination with generative models for large graphs, such as exponential random graph models \citep{robins2007introduction}.
+We think this approach is promising as the computational complexity of our method scales linearly with the size of the dataset, while deep generative models of graphs often scale quadratically \citep{zhu2022survey}.
+Moreover, foreign-key graphs are often simple enough to be modeled by less powerful but scalable statistical models.
+
+As previously mentioned, we believe further engineering the denoiser architecture can lead to additional performance improvements, as we used relatively simple neural network architectures.
+Another interesting theme is the development of better discriminators for relational data, potentially based on GNNs, that could provide a more accurate evaluation of synthetic data fidelity. The current discriminators are based on hand-crafted features and may not fully capture the complexities of relational data.
+Moreover, these could be used to include a discriminator loss during training, encouraging the model to generate more realistic data in fewer steps \citep{chadebec2025flash}.
+We also consider it interesting to use more sophisticated parametrizations of the variational distributions, for example with probabilistic circuits.
+
+As our method is based on flow matching, one can further exploit properties of diffusion-like models, such as guidance, inpainting, or the generation of variations of a given dataset.
+
+Finally, one could explore the integration of neuro-symbolic relational constraints into the training process, to enforce logical consistency in the generated data. This could be done by feeding the neuro-symbolic features to a discriminator-based loss, by including a regularization term in the loss function or by using special architectures \citep{stoian2024realistic}.
+Since it is possible to obtain a score-based formulation from a flow-matching model \citep{eijkelboom2024variational}, one could also explore the use of the technique we developed in Chapter \ref{training-free-conditioning}.
+
+% engineering the denoiser architecture better
+% better discriminator for evaluation (a GNN) even if more expensive to train
+% discriminator loss
+% Neuro symbolic relational constraints for training
+% \paragraph{Broader Impact.}
+% Our work contributes to the development of high fidelity relational data generation techniques. We believe these can have a positive impact, as synthetic data can enable privacy-preserving sharing of socially valuable information (e.g., medical data). However, malicious use is also possible, for instance, for data counterfeiting.
