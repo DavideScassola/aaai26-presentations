@@ -1,4 +1,6 @@
-\documentclass[10pt]{beamer}
+\documentclass[10pt,aspectratio=169]{beamer}
+% For 16:10, use aspectratio=1610
+% For 4:3 (default), use aspectratio=43
 
 \usetheme[progressbar=frametitle]{metropolis}
 \usepackage{appendixnumberbeamer}
@@ -10,333 +12,681 @@
 \usepgfplotslibrary{dateplot}
 
 \usepackage{xspace}
+\usepackage{xcolor}
+
+\usepackage{geometry}
+\geometry{left=0.8cm, right=0.8cm}
+
+\usepackage{natbib} % for \citet and \citep
+\usepackage{multirow} % for \multirow in tables
+
+\usepackage{hyperref}
+
+% \hypersetup{
+%     colorlinks=true,
+%     linkcolor=blue,
+%     citecolor=blue,
+%     urlcolor=blue
+% }
+
 \newcommand{\themename}{\textbf{\textsc{metropolis}}\xspace}
 
-\title{Metropolis}
-\subtitle{A modern beamer theme}
+\title{Graph-Conditional Flow Matching for Relational Data Generation}
+%\subtitle{A modern beamer theme}
 % \date{\today}
 \date{}
-\author{Matthias Vogelgesang}
-\institute{Center for modern beamer themes}
-% \titlegraphic{\hfill\includegraphics[height=1.5cm]{logo.pdf}}
+\author[Scassola \and Saccani \and Bortolussi]{%
+  Davide Scassola\inst{1,2} \and
+  Sebastiano Saccani\inst{2} \and
+  Luca Bortolussi\inst{1}%
+}
+\institute[UniTS \and Aindo SpA]{%
+  \inst{1} University of Trieste \\
+  \inst{2} Aindo SpA \\
+}
+\titlegraphic{%
+  \vspace{-0.3cm}
+  \centering
+  \begin{tabular}{ccc}
+    \includegraphics[height=1.2cm]{../assets/logos/logo_UNITS.png} &
+    \includegraphics[height=1.2cm]{../assets/logos/logo_ailab.pdf} &
+    \includegraphics[height=0.8cm]{../assets/logos/logo_aindo.png}
+  \end{tabular}
+}
 
 \begin{document}
 
 \maketitle
 
-\begin{frame}{Table of contents}
-  \setbeamertemplate{section in toc}[sections numbered]
-  \tableofcontents%[hideallsubsections]
-\end{frame}
+% \begin{frame}{Table of contents}
+%   \setbeamertemplate{section in toc}[sections numbered]
+%   \tableofcontents%[hideallsubsections]
+% \end{frame}
 
 \section[Intro]{Introduction}
 
-\begin{frame}[fragile]{Metropolis}
-
-  The \themename theme is a Beamer theme with minimal visual noise
-  inspired by the \href{https://github.com/hsrmbeamertheme/hsrmbeamertheme}{\textsc{hsrm} Beamer
-  Theme} by Benjamin Weiss.
-
-  Enable the theme by loading
-
-  \begin{verbatim}    \documentclass{beamer}
-    \usetheme{metropolis}\end{verbatim}
-
-  Note, that you have to have Mozilla's \emph{Fira Sans} font and XeTeX
-  installed to enjoy this wonderful typography.
-\end{frame}
-\begin{frame}[fragile]{Sections}
-  Sections group slides of the same topic
-
-  \begin{verbatim}    \section{Elements}\end{verbatim}
-
-  for which \themename provides a nice progress indicator \ldots
-  
-\end{frame}
-
-\section{Titleformats}
-
-\begin{frame}{Metropolis titleformats}
-	\themename supports 4 different titleformats:
-	\begin{itemize}
-		\item Regular
-		\item \textsc{Smallcaps}
-		\item \textsc{allsmallcaps}
-		\item ALLCAPS
-	\end{itemize}
-	They can either be set at once for every title type or individually.
-\end{frame}
-
-\subsection{Tricks}
-
-{
-    \metroset{titleformat frame=smallcaps}
-\begin{frame}{Small caps}
-	This frame uses the \texttt{smallcaps} titleformat.
-
-	\begin{alertblock}{Potential Problems}
-		Be aware, that not every font supports small caps. If for example you typeset your presentation with pdfTeX and the Computer Modern Sans Serif font, every text in smallcaps will be typeset with the Computer Modern Serif font instead.
-	\end{alertblock}
-\end{frame}
-}
-
-{
-\metroset{titleformat frame=allsmallcaps}
-\begin{frame}{All small caps}
-	This frame uses the \texttt{allsmallcaps} titleformat.
-
-	\begin{alertblock}{Potential problems}
-		As this titleformat also uses smallcaps you face the same problems as with the \texttt{smallcaps} titleformat. Additionally this format can cause some other problems. Please refer to the documentation if you consider using it.
-
-		As a rule of thumb: Just use it for plaintext-only titles.
-	\end{alertblock}
-\end{frame}
-}
-
-{
-\metroset{titleformat frame=allcaps}
-\begin{frame}{All caps}
-	This frame uses the \texttt{allcaps} titleformat.
-
-	\begin{alertblock}{Potential Problems}
-		This titleformat is not as problematic as the \texttt{allsmallcaps} format, but basically suffers from the same deficiencies. So please have a look at the documentation if you want to use it.
-	\end{alertblock}
-\end{frame}
-}
-
-\section{Elements}
-
-\begin{frame}[fragile]{Typography}
-      \begin{verbatim}The theme provides sensible defaults to
-\emph{emphasize} text, \alert{accent} parts
-or show \textbf{bold} results.\end{verbatim}
-
-  \begin{center}becomes\end{center}
-
-  The theme provides sensible defaults to \emph{emphasize} text,
-  \alert{accent} parts or show \textbf{bold} results.
-\end{frame}
-
-\begin{frame}{Font feature test}
-  \begin{itemize}
-    \item Regular
-    \item \textit{Italic}
-    \item \textsc{SmallCaps}
-    \item \textbf{Bold}
-    \item \textbf{\textit{Bold Italic}}
-    \item \textbf{\textsc{Bold SmallCaps}}
-    \item \texttt{Monospace}
-    \item \texttt{\textit{Monospace Italic}}
-    \item \texttt{\textbf{Monospace Bold}}
-    \item \texttt{\textbf{\textit{Monospace Bold Italic}}}
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Lists}
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{The Problem}
   \begin{columns}[T,onlytextwidth]
-    \column{0.33\textwidth}
-      Items
+    \column{0.5\textwidth}
+      Generating synthetic relational data:
       \begin{itemize}
-        \item Milk \item Eggs \item Potatos
+        \item Multiple tables (structured, relatively low dimensional, heterogeneous data)
+        \item Foreign-key relationships
       \end{itemize}
 
-    \column{0.33\textwidth}
-      Enumerations
-      \begin{enumerate}
-        \item First, \item Second and \item Last.
-      \end{enumerate}
+      Why?
+      \begin{itemize}
+        \item Privacy: share useful synthetic data while preserving privacy
+        \item Data Augmentation
+      \end{itemize}
 
-    \column{0.33\textwidth}
-      Descriptions
-      \begin{description}
-        \item[PowerPoint] Meeh. \item[Beamer] Yeeeha.
-      \end{description}
+    \column{0.45\textwidth}
+      \begin{figure}
+        \includegraphics[width=\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
+        \caption{Relational database schema.}
+      \end{figure}
   \end{columns}
 \end{frame}
-\begin{frame}{Animation}
-  \begin{itemize}[<+- | alert@+>]
-    \item \alert<4>{This is\only<4>{ really} important}
-    \item Now this
-    \item And now this
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Why is generating relational data hard?}
+  Generating synthetic relational data is difficult:
+  \begin{itemize}
+    \item Modeling relationships across tables: statistical dependencies of any record with any other record directly or indirectly connected to it through fk constraints
+    \item Generating realistic foreign key structures
+    \item Scaling to large datasets
+    \item Difficulties of tabular data generation: heterogeneous data types, complex marginals and dependencies, hard constraints
   \end{itemize}
 \end{frame}
-\begin{frame}{Figures}
-  \begin{figure}
-    \newcounter{density}
-    \setcounter{density}{20}
-    \begin{tikzpicture}
-      \def\couleur{alerted text.fg}
-      \path[coordinate] (0,0)  coordinate(A)
-                  ++( 90:5cm) coordinate(B)
-                  ++(0:5cm) coordinate(C)
-                  ++(-90:5cm) coordinate(D);
-      \draw[fill=\couleur!\thedensity] (A) -- (B) -- (C) --(D) -- cycle;
-      \foreach \x in {1,...,40}{%
-          \pgfmathsetcounter{density}{\thedensity+20}
-          \setcounter{density}{\thedensity}
-          \path[coordinate] coordinate(X) at (A){};
-          \path[coordinate] (A) -- (B) coordinate[pos=.10](A)
-                              -- (C) coordinate[pos=.10](B)
-                              -- (D) coordinate[pos=.10](C)
-                              -- (X) coordinate[pos=.10](D);
-          \draw[fill=\couleur!\thedensity] (A)--(B)--(C)-- (D) -- cycle;
-      }
-    \end{tikzpicture}
-    \caption{Rotated square from
-    \href{http://www.texample.net/tikz/examples/rotated-polygons/}{texample.net}.}
-  \end{figure}
-\end{frame}
-\begin{frame}{Tables}
-  \begin{table}
-    \caption{Largest cities in the world (source: Wikipedia)}
-    \begin{tabular}{lr}
-      \toprule
-      City & Population\\
-      \midrule
-      Mexico City & 20,116,842\\
-      Shanghai & 19,210,000\\
-      Peking & 15,796,450\\
-      Istanbul & 14,160,467\\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-\end{frame}
-\begin{frame}{Blocks}
-  Three different block environments are pre-defined and may be styled with an
-  optional background color.
+% -------------------------------------------------------------------------------------
 
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Relational Data as a Graph}
+  A relational database can be represented as a large graph:
+  \begin{itemize}
+    \item records $\rightarrow$ nodes
+    \item foreign-key relationships $\rightarrow$ edges
+  \end{itemize}
+
+  \begin{figure}
+    \includegraphics[width=0.6\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
+    \caption{Relational database as a graph.}
+  \end{figure}
+
+  Depending on the schema, the graph can have complex structures.
+  Depending on the dataset, connected components can be very large.
+  The IID samples of the data distribution are the connected components.
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Our Approach}
+  Graph-conditional generation with flow matching:
+  \begin{enumerate}
+    \item Graph-conditional generation: generate content conditioned on a given structure
+    \begin{equation*}
+      p(G, X) = p(G) p(X \mid G)
+    \end{equation*}
+    \item Flow matching: diffusion-like generative model for whole connected components $p(X \mid G)$
+  \end{enumerate}
+
+  \begin{figure}
+    \includegraphics[width=0.6\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
+    \caption{Relational database as a graph.}
+  \end{figure}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{(Variational) Flow Matching \citep{flow_matching, eijkelboom2024variational}}
+  Continuous Normalizing Flows (ODEs) + diffusion-like training:
+  \begin{itemize}
+    \item \textbf{Sampling}: solve the ODE
+  \begin{equation*}
+  \frac{d}{dt}\,\varphi_t(\mathbf{x})=v_t(\varphi_t(\mathbf{x})), \quad \text{with initial condition } \varphi_0(\mathbf{x})=\mathbf{x}.
+  \end{equation*}
+    \item \textbf{Training}: learning the vector field $v_t$ by \textcolor{red}{denoising} samples from a chosen \textcolor{blue}{conditional probability path}:
+    \begin{align*}
+      \mathcal{L(\theta)} &= - \mathbb{E}_{t \sim \mathcal{U}(0,1), \mathbf{x}_1 \sim p_{\text{data}}, \mathbf{x}_t \sim \textcolor{blue}{p_t(\mathbf{x}_t \mid \mathbf{x}_1)}} \left[ \textcolor{red} {\log{p_\theta(\mathbf{x}_1 \mid \mathbf{x}_t)}} \right] \\
+      v_t^\theta(\mathbf{x}_t) &= \mathbb{E}_{\mathbf{x}_1 \sim p(\mathbf{x}_1 \mid  \mathbf{x}_t)} \left[ \textcolor{blue}{u_t(\mathbf{x}_t \mid \mathbf{x}_1)} \right]
+    \end{align*}
+  \end{itemize}
+
+  \begin{figure}
+    \includegraphics[width=0.95\textwidth]{../assets/images/flow_matching2.png}
+    \caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
+  \end{figure}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Flow Matching for Relational Data}
+Training:
+\begin{itemize}
+  \item Define a conditional probability path $p_t(X_t \mid X_1, G) = \prod p_t^i(x_t^i \mid x_1^i)$ independently for each feature.
+  \item Learn a denoiser $p_\theta(X_1 \mid X_t, G)$
+  \item Categoricals are one-hot encoded, and denoiser distribution is either a categorical or a Gaussian depending on the feature type
+\end{itemize}
+Sampling:
+\begin{enumerate}
+  \item Generate the foreign-key graph $G \sim p(G)$ (we just re-sample connected components
+from the original graph)
+  \item Initialize every node with Gaussian noise $X_0 \sim \mathcal{N}(0, I)$
+  \item Solve the ODE numerically using the learned velocity, parametrized by the learned denoiser
+\end{enumerate}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Denoiser Architecture}
+
+\begin{itemize}
+  \item A GNN computes node embeddings for each record
+  \begin{equation*}
+    \mathbf{\varepsilon}_t = \text{GNN}_\theta\left(X_t, G, t \right)
+  \end{equation*}
+
+  \item MLPs use noisy records and node embeddings to predict the clean record
+  \begin{equation*}
+    \hat{x}_1^i = \text{MLP}_\theta\left(x_t^i, \mathbf{\varepsilon}_t, t \right)
+  \end{equation*}
+\end{itemize}
+
+  \begin{figure}
+    \includegraphics[width=0.95\textwidth]{../assets/images/cartoon_h2.pdf}
+    %\caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
+  \end{figure}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Controlling Generalization Error}
   \begin{columns}[T,onlytextwidth]
     \column{0.5\textwidth}
-      \begin{block}{Default}
-        Block content.
-      \end{block}
 
-      \begin{alertblock}{Alert}
-        Block content.
-      \end{alertblock}
+      \begin{itemize}
+        \item Randomly split the nodes between
+train and validation nodes
+        \item During training do not compute loss for validation nodes
+        \item Validation loss used for early stopping
+        \item “Within sample” generalization
+      \end{itemize}
 
-      \begin{exampleblock}{Example}
-        Block content.
-      \end{exampleblock}
-
-    \column{0.5\textwidth}
-
-      \metroset{block=fill}
-
-      \begin{block}{Default}
-        Block content.
-      \end{block}
-
-      \begin{alertblock}{Alert}
-        Block content.
-      \end{alertblock}
-
-      \begin{exampleblock}{Example}
-        Block content.
-      \end{exampleblock}
-
+    \column{0.45\textwidth}
+      \begin{figure}
+        \includegraphics[width=\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
+        \caption{Relational database schema.}
+      \end{figure}
   \end{columns}
-\end{frame}
-\begin{frame}{Math}
-  \begin{equation*}
-    e = \lim_{n\to \infty} \left(1 + \frac{1}{n}\right)^n
-  \end{equation*}
-\end{frame}
-\begin{frame}{Line plots}
-  \begin{figure}
-    \begin{tikzpicture}
-      \begin{axis}[
-        mlineplot,
-        width=0.9\textwidth,
-        height=6cm,
-      ]
-
-        \addplot {sin(deg(x))};
-        \addplot+[samples=100] {sin(deg(2*x))};
-
-      \end{axis}
-    \end{tikzpicture}
-  \end{figure}
-\end{frame}
-\begin{frame}{Bar charts}
-  \begin{figure}
-    \begin{tikzpicture}
-      \begin{axis}[
-        mbarplot,
-        xlabel={Foo},
-        ylabel={Bar},
-        width=0.9\textwidth,
-        height=6cm,
-      ]
-
-      \addplot plot coordinates {(1, 20) (2, 25) (3, 22.4) (4, 12.4)};
-      \addplot plot coordinates {(1, 18) (2, 24) (3, 23.5) (4, 13.2)};
-      \addplot plot coordinates {(1, 10) (2, 19) (3, 25) (4, 15.2)};
-
-      \legend{lorem, ipsum, dolor}
-
-      \end{axis}
-    \end{tikzpicture}
-  \end{figure}
-\end{frame}
-\begin{frame}{Quotes}
-  \begin{quote}
-    Veni, Vidi, Vici
-  \end{quote}
-\end{frame}
-
-{%
-\setbeamertemplate{frame footer}{My custom footer}
-\begin{frame}[fragile]{Frame footer}
-    \themename defines a custom beamer template to add a text to the footer. It can be set via
-    \begin{verbatim}\setbeamertemplate{frame footer}{My custom footer}\end{verbatim}
-\end{frame}
-}
-
-\begin{frame}{References}
-  Some references to showcase [allowframebreaks] \cite{knuth92,ConcreteMath,Simpson,Er01,greenwade93}
-\end{frame}
-
-\section{Conclusion}
-
-\begin{frame}{Summary}
-
-  Get the source of this theme and the demo presentation from
-
-  \begin{center}\url{github.com/matze/mtheme}\end{center}
-
-  The theme \emph{itself} is licensed under a
-  \href{http://creativecommons.org/licenses/by-sa/4.0/}{Creative Commons
-  Attribution-ShareAlike 4.0 International License}.
-
-  \begin{center}\ccbysa\end{center}
 
 \end{frame}
+% -------------------------------------------------------------------------------------
 
-{\setbeamercolor{palette primary}{fg=black, bg=yellow}
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Results: Fidelity}
+  \begin{itemize}
+    \item \textbf{Fidelity}: accuracy of an XGBoost classifier, that learned to distinguish real from generated rows (the lower the accuracy the higher the realism)
+    \item Rows are enriched with aggregated informations from connected rows
+    \item State-of-the-art performances
+    \item Ablation shows importance of GNN for modeling dependencies
+  \end{itemize}
+
+\begin{table}[ht]
+\centering
+%\caption{Average accuracy with standard deviation of an XGBoost multi-table discriminator using rows with aggregated statistics. For datasets with multiple parent tables, the highest accuracy was selected. The CORA dataset is the only one for which using GNN embeddings does not improve the evaluation metric. However, we noticed that the simple post-processing step consisting of removing duplicated records from a child table ($\approx 3\%$ of records), allowed us to obtain a performance of $\approx 0.50$. Moreover, we observed a lower validation loss when the GNN was used. Statistics are computed over three different runs.}
+\scriptsize
+\begin{tabular}{lcccccc}
+\toprule
+ & \textbf{AirBnB} & \textbf{Biodegradability} & \textbf{CORA} & \textbf{IMDB} & \textbf{Rossmann} & \textbf{Walmart}\\
+\midrule
+Ours & $\mathbf{0.58 \pm 0.03}$ & $\mathbf{0.59 \pm 0.02}$ & $0.63 \pm 0.02$ & $\mathbf{0.59 \pm 0.03}$ & $\mathbf{0.51 \pm 0.01}$ & $\mathbf{0.73 \pm 0.01}$ \\
+Ours (no GNN) & $0.70 \pm 0.005$ & $0.86 \pm 0.004$ & $0.62 \pm 0.004$ & $0.89 \pm 0.002$ & $0.75 \pm 0.01$ & $0.91 \pm 0.04$ \\
+\citet{hudovernik2024relational} & $0.67 \pm 0.003$ & $0.83 \pm 0.01$ & $\mathbf{0.60 \pm 0.01}$ & $0.64 \pm 0.01$ & $0.77 \pm 0.01$ & $0.79 \pm 0.04$ \\
+ClavaDDPM & $\approx 1$ & - & - & $0.83 \pm 0.004$ & $0.86 \pm 0.01$ & $0.74 \pm 0.05$ \\
+RCTGAN  & $0.98 \pm 0.001$ & $0.88 \pm 0.01$ & $0.73 \pm 0.01$ & $0.95 \pm 0.002$ & $0.88 \pm 0.01$ & $0.96 \pm 0.02$ \\
+REaLTabF. & $\approx 1$ & - & - & - & $0.92 \pm 0.01$ & $\approx 1$ \\
+SDV & $\approx 1$ & $0.98 \pm 0.01$ & $\approx 1$ & - & $0.98 \pm 0.003$ & $0.90 \pm 0.03$ \\
+\bottomrule
+\end{tabular}
+\label{tab:results}
+
+\end{table}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Results: Privacy and Efficiency}
+  \begin{itemize}
+    \item \textbf{Privacy}: DCR (Distance to Closest Record) analysis does not highlight privacy leaks, despite copying/resampling the foreign-key graph.
+    \item \textbf{Efficiency}: Training and generation are fast (on a single NVIDIA RTX A5000)
+  \end{itemize}
+
+\begin{table}[h]
+\centering
+%\caption{Maximum runtime across repetitions for each dataset during experimentation.}
+\label{tab:experiment_duration}
+\begin{tabular}{l r}
+\toprule
+\textbf{Dataset Name} & \textbf{Running Time} \\
+\midrule
+AirBnB                & $10$m $3$s \\
+Biodegradability      & $1$m $6$s  \\
+CORA                  & $3$m $10$s \\
+IMDB MovieLens        & $14$m $25$s \\
+Rossmann              & $2$m $57$s \\
+Walmart               & $1$m $48$s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Our Contribution}
+
+  \textbf{Expressiveness}
+  \begin{itemize}
+    \item Model for whole connected components (no independence
+    assumptions) with flow matching + GNN
+    \item Generalization through modular denoiser, GNN embedding size bottleneck, controlling “within sample” generalization
+  \end{itemize}
+
+  \textbf{Flexibility}
+  \begin{itemize}
+    \item GNN supports any kind of graph
+  \end{itemize}
+
+  \textbf{Scalability}
+  \begin{itemize}
+    \item Flow matching scales with large dimensionalities
+    \item Avoid dealing with dense adjacency matrix; GNN scales since number of edges is proportional to number of nodes
+  \end{itemize}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Final Thoughts}
+
+  \textbf{Limitations}
+  \begin{itemize}
+    \item Not a model of the foreign-key graph $p(G)$
+    \item Our implementation requires connected components to fit in GPU memory
+    \item Hyperparameter tuning for each dataset
+  \end{itemize}
+
+  \textbf{Future Work}
+  \begin{itemize}
+    \item Better engineer the denoiser, e.g. more advanced GNN architectures
+    \item Batching strategies to scale to larger connected components.
+  \end{itemize}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+%{\setbeamercolor{palette primary}{fg=black, bg=yellow}
 \begin{frame}[standout]
   Questions?
 \end{frame}
-}
+%}
+% -------------------------------------------------------------------------------------
 
-\appendix
-
-\begin{frame}[fragile]{Backup slides}
-  Sometimes, it is useful to add slides at the end of your presentation to
-  refer to during audience questions.
-
-  The best way to do this is to include the \verb|appendixnumberbeamer|
-  package in your preamble and call \verb|\appendix| before your backup slides.
-
-  \themename will automatically turn off slide numbering and progress bars for
-  slides in the appendix.
-\end{frame}
-
+% -------------------------------------------------------------------------------------
 \begin{frame}[allowframebreaks]{References}
 
-  \bibliography{demo}
-  \bibliographystyle{abbrv}
-
+  \bibliography{presentation}
+  \bibliographystyle{abbrvnat}
 \end{frame}
+% -------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% \begin{frame}[fragile]{Metropolis}
+
+%   The \themename theme is a Beamer theme with minimal visual noise
+%   inspired by the \href{https://github.com/hsrmbeamertheme/hsrmbeamertheme}{\textsc{hsrm} Beamer
+%   Theme} by Benjamin Weiss.
+
+%   Enable the theme by loading
+
+%   \begin{verbatim}    \documentclass{beamer}
+%     \usetheme{metropolis}\end{verbatim}
+
+%   Note, that you have to have Mozilla's \emph{Fira Sans} font and XeTeX
+%   installed to enjoy this wonderful typography.
+% \end{frame}
+
+% \begin{frame}[fragile]{Metropolis}
+
+%   The \themename theme is a Beamer theme with minimal visual noise
+%   inspired by the \href{https://github.com/hsrmbeamertheme/hsrmbeamertheme}{\textsc{hsrm} Beamer
+%   Theme} by Benjamin Weiss.
+
+%   Enable the theme by loading
+
+%   \begin{verbatim}    \documentclass{beamer}
+%     \usetheme{metropolis}\end{verbatim}
+
+%   Note, that you have to have Mozilla's \emph{Fira Sans} font and XeTeX
+%   installed to enjoy this wonderful typography.
+% \end{frame}
+% \begin{frame}[fragile]{Sections}
+%   Sections group slides of the same topic
+
+%   \begin{verbatim}    \section{Elements}\end{verbatim}
+
+%   for which \themename provides a nice progress indicator \ldots
+  
+% \end{frame}
+
+% \section{Titleformats}
+
+% \begin{frame}{Metropolis titleformats}
+% 	\themename supports 4 different titleformats:
+% 	\begin{itemize}
+% 		\item Regular
+% 		\item \textsc{Smallcaps}
+% 		\item \textsc{allsmallcaps}
+% 		\item ALLCAPS
+% 	\end{itemize}
+% 	They can either be set at once for every title type or individually.
+% \end{frame}
+
+% \subsection{Tricks}
+
+% {
+%     \metroset{titleformat frame=smallcaps}
+% \begin{frame}{Small caps}
+% 	This frame uses the \texttt{smallcaps} titleformat.
+
+% 	\begin{alertblock}{Potential Problems}
+% 		Be aware, that not every font supports small caps. If for example you typeset your presentation with pdfTeX and the Computer Modern Sans Serif font, every text in smallcaps will be typeset with the Computer Modern Serif font instead.
+% 	\end{alertblock}
+% \end{frame}
+% }
+
+% {
+% \metroset{titleformat frame=allsmallcaps}
+% \begin{frame}{All small caps}
+% 	This frame uses the \texttt{allsmallcaps} titleformat.
+
+% 	\begin{alertblock}{Potential problems}
+% 		As this titleformat also uses smallcaps you face the same problems as with the \texttt{smallcaps} titleformat. Additionally this format can cause some other problems. Please refer to the documentation if you consider using it.
+
+% 		As a rule of thumb: Just use it for plaintext-only titles.
+% 	\end{alertblock}
+% \end{frame}
+% }
+
+% {
+% \metroset{titleformat frame=allcaps}
+% \begin{frame}{All caps}
+% 	This frame uses the \texttt{allcaps} titleformat.
+
+% 	\begin{alertblock}{Potential Problems}
+% 		This titleformat is not as problematic as the \texttt{allsmallcaps} format, but basically suffers from the same deficiencies. So please have a look at the documentation if you want to use it.
+% 	\end{alertblock}
+% \end{frame}
+% }
+
+% \section{Elements}
+
+% \begin{frame}[fragile]{Typography}
+%       \begin{verbatim}The theme provides sensible defaults to
+% \emph{emphasize} text, \alert{accent} parts
+% or show \textbf{bold} results.\end{verbatim}
+
+%   \begin{center}becomes\end{center}
+
+%   The theme provides sensible defaults to \emph{emphasize} text,
+%   \alert{accent} parts or show \textbf{bold} results.
+% \end{frame}
+
+% \begin{frame}{Font feature test}
+%   \begin{itemize}
+%     \item Regular
+%     \item \textit{Italic}
+%     \item \textsc{SmallCaps}
+%     \item \textbf{Bold}
+%     \item \textbf{\textit{Bold Italic}}
+%     \item \textbf{\textsc{Bold SmallCaps}}
+%     \item \texttt{Monospace}
+%     \item \texttt{\textit{Monospace Italic}}
+%     \item \texttt{\textbf{Monospace Bold}}
+%     \item \texttt{\textbf{\textit{Monospace Bold Italic}}}
+%   \end{itemize}
+% \end{frame}
+
+% \begin{frame}{Lists}
+%   \begin{columns}[T,onlytextwidth]
+%     \column{0.33\textwidth}
+%       Items
+%       \begin{itemize}
+%         \item Milk \item Eggs \item Potatos
+%       \end{itemize}
+
+%     \column{0.33\textwidth}
+%       Enumerations
+%       \begin{enumerate}
+%         \item First, \item Second and \item Last.
+%       \end{enumerate}
+
+%     \column{0.33\textwidth}
+%       Descriptions
+%       \begin{description}
+%         \item[PowerPoint] Meeh. \item[Beamer] Yeeeha.
+%       \end{description}
+%   \end{columns}
+% \end{frame}
+% \begin{frame}{Animation}
+%   \begin{itemize}[<+- | alert@+>]
+%     \item \alert<4>{This is\only<4>{ really} important}
+%     \item Now this
+%     \item And now this
+%   \end{itemize}
+% \end{frame}
+% \begin{frame}{Figures}
+%   \begin{figure}
+%     \newcounter{density}
+%     \setcounter{density}{20}
+%     \begin{tikzpicture}
+%       \def\couleur{alerted text.fg}
+%       \path[coordinate] (0,0)  coordinate(A)
+%                   ++( 90:5cm) coordinate(B)
+%                   ++(0:5cm) coordinate(C)
+%                   ++(-90:5cm) coordinate(D);
+%       \draw[fill=\couleur!\thedensity] (A) -- (B) -- (C) --(D) -- cycle;
+%       \foreach \x in {1,...,40}{%
+%           \pgfmathsetcounter{density}{\thedensity+20}
+%           \setcounter{density}{\thedensity}
+%           \path[coordinate] coordinate(X) at (A){};
+%           \path[coordinate] (A) -- (B) coordinate[pos=.10](A)
+%                               -- (C) coordinate[pos=.10](B)
+%                               -- (D) coordinate[pos=.10](C)
+%                               -- (X) coordinate[pos=.10](D);
+%           \draw[fill=\couleur!\thedensity] (A)--(B)--(C)-- (D) -- cycle;
+%       }
+%     \end{tikzpicture}
+%     \caption{Rotated square from
+%     \href{http://www.texample.net/tikz/examples/rotated-polygons/}{texample.net}.}
+%   \end{figure}
+% \end{frame}
+% \begin{frame}{Tables}
+%   \begin{table}
+%     \caption{Largest cities in the world (source: Wikipedia)}
+%     \begin{tabular}{lr}
+%       \toprule
+%       City & Population\\
+%       \midrule
+%       Mexico City & 20,116,842\\
+%       Shanghai & 19,210,000\\
+%       Peking & 15,796,450\\
+%       Istanbul & 14,160,467\\
+%       \bottomrule
+%     \end{tabular}
+%   \end{table}
+% \end{frame}
+% \begin{frame}{Blocks}
+%   Three different block environments are pre-defined and may be styled with an
+%   optional background color.
+
+%   \begin{columns}[T,onlytextwidth]
+%     \column{0.5\textwidth}
+%       \begin{block}{Default}
+%         Block content.
+%       \end{block}
+
+%       \begin{alertblock}{Alert}
+%         Block content.
+%       \end{alertblock}
+
+%       \begin{exampleblock}{Example}
+%         Block content.
+%       \end{exampleblock}
+
+%     \column{0.5\textwidth}
+
+%       \metroset{block=fill}
+
+%       \begin{block}{Default}
+%         Block content.
+%       \end{block}
+
+%       \begin{alertblock}{Alert}
+%         Block content.
+%       \end{alertblock}
+
+%       \begin{exampleblock}{Example}
+%         Block content.
+%       \end{exampleblock}
+
+%   \end{columns}
+% \end{frame}
+% \begin{frame}{Math}
+%   \begin{equation*}
+%     e = \lim_{n\to \infty} \left(1 + \frac{1}{n}\right)^n
+%   \end{equation*}
+% \end{frame}
+% \begin{frame}{Line plots}
+%   \begin{figure}
+%     \begin{tikzpicture}
+%       \begin{axis}[
+%         mlineplot,
+%         width=0.9\textwidth,
+%         height=6cm,
+%       ]
+
+%         \addplot {sin(deg(x))};
+%         \addplot+[samples=100] {sin(deg(2*x))};
+
+%       \end{axis}
+%     \end{tikzpicture}
+%   \end{figure}
+% \end{frame}
+% \begin{frame}{Bar charts}
+%   \begin{figure}
+%     \begin{tikzpicture}
+%       \begin{axis}[
+%         mbarplot,
+%         xlabel={Foo},
+%         ylabel={Bar},
+%         width=0.9\textwidth,
+%         height=6cm,
+%       ]
+
+%       \addplot plot coordinates {(1, 20) (2, 25) (3, 22.4) (4, 12.4)};
+%       \addplot plot coordinates {(1, 18) (2, 24) (3, 23.5) (4, 13.2)};
+%       \addplot plot coordinates {(1, 10) (2, 19) (3, 25) (4, 15.2)};
+
+%       \legend{lorem, ipsum, dolor}
+
+%       \end{axis}
+%     \end{tikzpicture}
+%   \end{figure}
+% \end{frame}
+% \begin{frame}{Quotes}
+%   \begin{quote}
+%     Veni, Vidi, Vici
+%   \end{quote}
+% \end{frame}
+
+% {%
+% \setbeamertemplate{frame footer}{My custom footer}
+% \begin{frame}[fragile]{Frame footer}
+%     \themename defines a custom beamer template to add a text to the footer. It can be set via
+%     \begin{verbatim}\setbeamertemplate{frame footer}{My custom footer}\end{verbatim}
+% \end{frame}
+% }
+
+% \begin{frame}{References}
+%   Some references to showcase [allowframebreaks] \cite{knuth92,ConcreteMath,Simpson,Er01,greenwade93}
+% \end{frame}
+
+% \section{Conclusion}
+
+% \begin{frame}{Summary}
+
+%   Get the source of this theme and the demo presentation from
+
+%   \begin{center}\url{github.com/matze/mtheme}\end{center}
+
+%   The theme \emph{itself} is licensed under a
+%   \href{http://creativecommons.org/licenses/by-sa/4.0/}{Creative Commons
+%   Attribution-ShareAlike 4.0 International License}.
+
+%   \begin{center}\ccbysa\end{center}
+
+% \end{frame}
+
+% {\setbeamercolor{palette primary}{fg=black, bg=yellow}
+% \begin{frame}[standout]
+%   Questions?
+% \end{frame}
+% }
+
+% \appendix
+
+% \begin{frame}[fragile]{Backup slides}
+%   Sometimes, it is useful to add slides at the end of your presentation to
+%   refer to during audience questions.
+
+%   The best way to do this is to include the \verb|appendixnumberbeamer|
+%   package in your preamble and call \verb|\appendix| before your backup slides.
+
+%   \themename will automatically turn off slide numbering and progress bars for
+%   slides in the appendix.
+% \end{frame}
+
+
 
 \end{document}
