@@ -1,7 +1,9 @@
+%! TEX program = pdflatex --extra-mem-bot=50000000
 \documentclass[10pt,aspectratio=169]{beamer}
 % For 16:10, use aspectratio=1610
 % For 4:3 (default), use aspectratio=43
 
+%\pdfmaxgeneric=500000
 \usetheme[progressbar=frametitle]{metropolis}
 \usepackage{appendixnumberbeamer}
 
@@ -63,7 +65,7 @@
 %   \tableofcontents%[hideallsubsections]
 % \end{frame}
 
-\section[Intro]{Introduction}
+%\section[Intro]{Introduction}
 
 % -------------------------------------------------------------------------------------
 \begin{frame}[fragile]{The Problem}
@@ -81,10 +83,10 @@
         \item Data Augmentation
       \end{itemize}
 
-    \column{0.45\textwidth}
+    \column{0.4\textwidth}
       \begin{figure}
-        \includegraphics[width=\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
-        \caption{Relational database schema.}
+        \includegraphics[width=\textwidth, page=1]{../assets/images/graphics.pdf}
+        %\caption{Relational database schema.}
       \end{figure}
   \end{columns}
 \end{frame}
@@ -94,11 +96,18 @@
 \begin{frame}[fragile]{Why is generating relational data hard?}
   Generating synthetic relational data is difficult:
   \begin{itemize}
-    \item Modeling relationships across tables: statistical dependencies of any record with any other record directly or indirectly connected to it through fk constraints
+    \item Modeling relationships across tables: statistical dependencies of any record with any other record directly or indirectly connected to it through foreign-key relationships
     \item Generating realistic foreign key structures
     \item Scaling to large datasets
-    \item Difficulties of tabular data generation: heterogeneous data types, complex marginals and dependencies, hard constraints
+    %\item Difficulties of tabular data generation: heterogeneous data types, complex marginals and dependencies
   \end{itemize}
+
+  Limitations of existing methods:
+  \begin{itemize}
+    \item Limited expressiveness (independence assumptions, heuristics)
+    \item Limited flexibility with arbitrary foreign key structures
+  \end{itemize}
+
 \end{frame}
 % -------------------------------------------------------------------------------------
 
@@ -106,13 +115,13 @@
 \begin{frame}[fragile]{Relational Data as a Graph}
   A relational database can be represented as a large graph:
   \begin{itemize}
-    \item records $\rightarrow$ nodes
-    \item foreign-key relationships $\rightarrow$ edges
+    \item Records $\rightarrow$ nodes
+    \item Foreign-key relationships $\rightarrow$ edges
   \end{itemize}
 
   \begin{figure}
-    \includegraphics[width=0.6\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
-    \caption{Relational database as a graph.}
+    \includegraphics[width=0.8\textwidth, page=2]{../assets/images/graphics_compressed.pdf}
+    %\caption{Relational database as a graph.}
   \end{figure}
 
   Depending on the schema, the graph can have complex structures.
@@ -134,8 +143,8 @@
   \end{enumerate}
 
   \begin{figure}
-    \includegraphics[width=0.6\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
-    \caption{Relational database as a graph.}
+        \includegraphics[width=0.7\textwidth, page=3]{../assets/images/graphics_compressed.pdf}
+    %\caption{Relational database as a graph.}
   \end{figure}
 
 \end{frame}
@@ -150,29 +159,58 @@
   \frac{d}{dt}\,\varphi_t(\mathbf{x})=v_t(\varphi_t(\mathbf{x})), \quad \text{with initial condition } \varphi_0(\mathbf{x})=\mathbf{x}.
   \end{equation*}
     \item \textbf{Training}: learning the vector field $v_t$ by \textcolor{red}{denoising} samples from a chosen \textcolor{blue}{conditional probability path}:
-    \begin{align*}
-      \mathcal{L(\theta)} &= - \mathbb{E}_{t \sim \mathcal{U}(0,1), \mathbf{x}_1 \sim p_{\text{data}}, \mathbf{x}_t \sim \textcolor{blue}{p_t(\mathbf{x}_t \mid \mathbf{x}_1)}} \left[ \textcolor{red} {\log{p_\theta(\mathbf{x}_1 \mid \mathbf{x}_t)}} \right] \\
-      v_t^\theta(\mathbf{x}_t) &= \mathbb{E}_{\mathbf{x}_1 \sim p(\mathbf{x}_1 \mid  \mathbf{x}_t)} \left[ \textcolor{blue}{u_t(\mathbf{x}_t \mid \mathbf{x}_1)} \right]
-    \end{align*}
+    \begin{equation*}
+      \mathcal{L(\theta)} = - \mathbb{E}_{t \sim \mathcal{U}(0,1), \mathbf{x}_1 \sim p_{\text{data}}, \mathbf{x}_t \sim \textcolor{blue}{p_t(\mathbf{x}_t \mid \mathbf{x}_1)}} \left[ \textcolor{red} {\log{p_\theta(\mathbf{x}_1 \mid \mathbf{x}_t)}} \right] \qquad
+      v_t^\theta(\mathbf{x}_t) = \mathbb{E}_{\mathbf{x}_1 \sim \textcolor{red}{p_\theta(\mathbf{x}_1 \mid  \mathbf{x}_t)}} \left[ \textcolor{blue}{u_t(\mathbf{x}_t \mid \mathbf{x}_1)} \right]
+    \end{equation*}
   \end{itemize}
 
   \begin{figure}
     \includegraphics[width=0.95\textwidth]{../assets/images/flow_matching2.png}
-    \caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
+    %\caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
   \end{figure}
 
 \end{frame}
 % -------------------------------------------------------------------------------------
 
+% % -------------------------------------------------------------------------------------
+% \begin{frame}[fragile]{(Variational) Flow Matching \citep{flow_matching, eijkelboom2024variational}}
+%   \begin{columns}[T,onlytextwidth]
+%     \column{0.5\textwidth}
+%   Continuous Normalizing Flows (ODEs) + diffusion-like training:
+%   \begin{itemize}
+%     \item \textbf{Sampling}: solve the ODE
+%   \begin{equation*}
+%   \frac{d}{dt}\,\varphi_t(\mathbf{x})=v_t(\varphi_t(\mathbf{x})), \quad \text{with initial condition } \varphi_0(\mathbf{x})=\mathbf{x}.
+%   \end{equation*}
+%     \item \textbf{Training}: learning the vector field $v_t$ by \textcolor{red}{denoising} samples from a chosen \textcolor{blue}{conditional probability path}:
+%     \begin{align*}
+%       \mathcal{L(\theta)} &= - \mathbb{E}_{t \sim \mathcal{U}(0,1), \mathbf{x}_1 \sim p_{\text{data}}, \mathbf{x}_t \sim \textcolor{blue}{p_t(\mathbf{x}_t \mid \mathbf{x}_1)}} \left[ \textcolor{red} {\log{p_\theta(\mathbf{x}_1 \mid \mathbf{x}_t)}} \right] \\
+%       v_t^\theta(\mathbf{x}_t) &= \mathbb{E}_{\mathbf{x}_1 \sim p_\theta(\mathbf{x}_1 \mid  \mathbf{x}_t)} \left[ \textcolor{blue}{u_t(\mathbf{x}_t \mid \mathbf{x}_1)} \right]
+%     \end{align*}
+%   \end{itemize}
+
+%     \column{0.45\textwidth}
+%     \begin{figure}
+%       \includegraphics[width=0.95\textwidth]{../assets/images/flow_matching.pdf}
+%       \caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
+%     \end{figure}
+
+%   \end{columns}
+
+
+% \end{frame}
+% % -------------------------------------------------------------------------------------
+
 % -------------------------------------------------------------------------------------
 \begin{frame}[fragile]{Flow Matching for Relational Data}
-Training:
+\textbf{Training}:
 \begin{itemize}
   \item Define a conditional probability path $p_t(X_t \mid X_1, G) = \prod p_t^i(x_t^i \mid x_1^i)$ independently for each feature.
   \item Learn a denoiser $p_\theta(X_1 \mid X_t, G)$
   \item Categoricals are one-hot encoded, and denoiser distribution is either a categorical or a Gaussian depending on the feature type
 \end{itemize}
-Sampling:
+\textbf{Sampling}:
 \begin{enumerate}
   \item Generate the foreign-key graph $G \sim p(G)$ (we just re-sample connected components
 from the original graph)
@@ -189,17 +227,17 @@ from the original graph)
 \begin{itemize}
   \item A GNN computes node embeddings for each record
   \begin{equation*}
-    \mathbf{\varepsilon}_t = \text{GNN}_\theta\left(X_t, G, t \right)
+    \mathbf{\varepsilon}_t^i = \text{GNN}_\theta\left(X_t, G, t \right)^i
   \end{equation*}
 
   \item MLPs use noisy records and node embeddings to predict the clean record
   \begin{equation*}
-    \hat{x}_1^i = \text{MLP}_\theta\left(x_t^i, \mathbf{\varepsilon}_t, t \right)
+    \hat{x}_1^i = \text{MLP}_\theta\left(x_t^i, \mathbf{\varepsilon}_t^i, t \right)
   \end{equation*}
 \end{itemize}
 
   \begin{figure}
-    \includegraphics[width=0.95\textwidth]{../assets/images/cartoon_h2.pdf}
+    \includegraphics[width=0.95\textwidth, page=5]{../assets/images/graphics_compressed.pdf}
     %\caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
   \end{figure}
 
@@ -221,8 +259,8 @@ train and validation nodes
 
     \column{0.45\textwidth}
       \begin{figure}
-        \includegraphics[width=\textwidth]{../assets/images/embedding_vs_val_CORA.pdf}
-        \caption{Relational database schema.}
+        \includegraphics[width=0.8\textwidth, page=6]{../assets/images/graphics_compressed.pdf}
+        %\caption{Relational database schema.}
       \end{figure}
   \end{columns}
 
