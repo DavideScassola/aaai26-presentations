@@ -124,9 +124,13 @@
     %\caption{Relational database as a graph.}
   \end{figure}
 
-  Depending on the schema, the graph can have complex structures.
-  Depending on the dataset, connected components can be very large.
-  The IID samples of the data distribution are the connected components.
+  \begin{itemize}
+    \item The foreign key graph can be complex.
+    \item i.i.d samples? Connected components of the graph.
+  \end{itemize}
+  
+  %Depending on the dataset, connected components can be very large.
+  %The IID samples of the data distribution are the connected components.
 
 \end{frame}
 % -------------------------------------------------------------------------------------
@@ -154,11 +158,11 @@
 \begin{frame}[fragile]{(Variational) Flow Matching \citep{flow_matching, eijkelboom2024variational}}
   Continuous Normalizing Flows (ODEs) + diffusion-like training:
   \begin{itemize}
-    \item \textbf{Sampling}: solve the ODE
+    \item \textbf{Sampling}: solve the ODE to map Gaussian noise to data:
   \begin{equation*}
   \frac{d}{dt}\,\varphi_t(\mathbf{x})=v_t(\varphi_t(\mathbf{x})), \quad \text{with initial condition } \varphi_0(\mathbf{x})=\mathbf{x}.
   \end{equation*}
-    \item \textbf{Training}: learning the vector field $v_t$ by \textcolor{red}{denoising} samples from a chosen \textcolor{blue}{conditional probability path}:
+    \item \textbf{Training}: learn field $v_t$ by \textcolor{red}{denoising} samples from a chosen \textcolor{blue}{conditional probability path}:
     \begin{equation*}
       \mathcal{L(\theta)} = - \mathbb{E}_{t \sim \mathcal{U}(0,1), \mathbf{x}_1 \sim p_{\text{data}}, \mathbf{x}_t \sim \textcolor{blue}{p_t(\mathbf{x}_t \mid \mathbf{x}_1)}} \left[ \textcolor{red} {\log{p_\theta(\mathbf{x}_1 \mid \mathbf{x}_t)}} \right] \qquad
       v_t^\theta(\mathbf{x}_t) = \mathbb{E}_{\mathbf{x}_1 \sim \textcolor{red}{p_\theta(\mathbf{x}_1 \mid  \mathbf{x}_t)}} \left[ \textcolor{blue}{u_t(\mathbf{x}_t \mid \mathbf{x}_1)} \right]
@@ -167,7 +171,7 @@
 
   \begin{figure}
     \includegraphics[width=0.95\textwidth]{../assets/images/flow_matching2.png}
-    %\caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
+    \caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
   \end{figure}
 
 \end{frame}
@@ -206,8 +210,8 @@
 \begin{frame}[fragile]{Flow Matching for Relational Data}
 \textbf{Training}:
 \begin{itemize}
-  \item Define a conditional probability path $p_t(X_t \mid X_1, G) = \prod p_t^i(x_t^i \mid x_1^i)$ independently for each feature.
-  \item Learn a denoiser $p_\theta(X_1 \mid X_t, G)$
+  \item Define a conditional probability path $\textcolor{blue}{p_t(X_t \mid X_1, G) = \prod p_t^i(x_t^i \mid x_1^i)}$ independently for each feature.
+  \item Learn a denoiser $\textcolor{red}{p_\theta(X_1 \mid X_t, G) = \prod p_\theta^i(x_1^i \mid X_t, G)}$
   \item Categoricals are one-hot encoded, and denoiser distribution is either a categorical or a Gaussian depending on the feature type
 \end{itemize}
 \textbf{Sampling}:
@@ -215,7 +219,9 @@
   \item Generate the foreign-key graph $G \sim p(G)$ (we just re-sample connected components
 from the original graph)
   \item Initialize every node with Gaussian noise $X_0 \sim \mathcal{N}(0, I)$
-  \item Solve the ODE numerically using the learned velocity, parametrized by the learned denoiser
+  \item Solve the ODE numerically using the learned velocity, parametrized by the learned denoiser:
+  \begin{equation*}
+v_t^\theta(X_t) = \mathbb{E}_{\mathbf{X}_1 \sim \textcolor{red}{p_\theta(X_1 \mid  X_t, G)}} \left[ \textcolor{blue}{u_t(X_t \mid X_1)} \right]  \end{equation*}
 \end{enumerate}
 
 \end{frame}
@@ -232,7 +238,7 @@ from the original graph)
 
   \item MLPs use noisy records and node embeddings to predict the clean record
   \begin{equation*}
-    \hat{x}_1^i = \text{MLP}_\theta\left(x_t^i, \mathbf{\varepsilon}_t^i, t \right)
+    \hat{x}_1^i = \mathbb{E}_{p_\theta(x_1^i \mid X_t, G)} \left[ x_1^i \right] = \text{MLP}_\theta\left(x_t^i, \mathbf{\varepsilon}_t^i, t \right)
   \end{equation*}
 \end{itemize}
 
