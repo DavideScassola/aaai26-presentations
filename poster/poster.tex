@@ -1,0 +1,104 @@
+% !TeX program=lualatex
+\documentclass[25pt, a0paper, portrait]{conferenceposter}
+
+%\geometry{paperheight=48in,paperwidth=36in} % for different sizes than A paper
+
+\usepackage[english]{babel}
+\usepackage{microtype}
+
+%\usepackage[T1]{fontenc}
+%\usepackage[defaultsans,default]{opensans}
+\usepackage{fontenc} % use with lualatex or xelatex
+\usepackage{arev} % math font
+%\setmainfont{Open Sans}
+
+
+\usepackage{blindtext}
+
+
+
+\definecolorpalette{myColorPalette}{
+	\definecolor{colorOne}{HTML}{ECF1FC} % Main background color that is used as the background color of the poster.
+	\definecolor{colorTwo}{HTML}{ECF1FC} % Note color that is used for the frame and in a lighter shade as the background color of notes.
+	\definecolor{colorThree}{HTML}{1A3A52} % Accent color that is used as the background of the poster title and the blocks' titles.
+	\definecolor{bgcolorAlt}{HTML}{FCFCFF} % Second/alternative background color that is used as the background color of the blocks, as the foreground color in the titles and as the background color for the head of the poster.
+	\definecolor{fgcolor}{HTML}{222244} % Foreground color that is used as the main text color inside the blocks.
+}
+\usecolorstyle[colorPalette=myColorPalette]{conferenceColorStyle}
+
+
+% --------------------------------------
+% ## Logo
+% If you want to show the logo of your institution/university on the top, you
+% simple need to adjust the `\titlegraphic` command like
+% ```latex
+% \titlegraphic{\includegraphics[height=.08\textheight]{logo.png}}
+% ```
+% where `logo.png` refers to the image file of the logo.
+
+
+% When you want to show multiple logos, e.g., because it is a collaboration, you
+% can do the following.
+% ```latex
+% \titlegraphic{\parbox{\titlewidth}{\includegraphics[height=.06\paperheight]{logo1.png} \hfill \includegraphics[height=.06\paperheight]{logo2.png} \hfil \includegraphics[height=.06\paperheight]{logo3.png}}}
+% ```
+% --------------------------------------
+
+
+\newcommand{\titlespace}{\hspace{30pt}} % adjust gap if needed
+
+\title{\centering\boldmath{}Graph-Conditional\titlespace Flow\titlespace Matching\titlespace \\ for\titlespace Relational\titlespace Data\titlespace Generation}
+\author{\centering Davide Scassola\affilmark{1,2}, Sebastiano Saccani\affilmark{2}, and Luca Bortolussi\affilmark{1}}
+\institute{\centering %
+\affilmark{1} AI\textsc{lab}, University of Trieste, Trieste, Italy \hspace{50pt}
+\affilmark{2} Aindo SpA, AREA Science Park, Trieste, Italy\\
+}
+
+%\titlegraphic{\includegraphics[height=.08\paperheight]{../assets/logos/logo_ailab.pdf}}
+
+\titlegraphic{\parbox{\titlewidth}{\includegraphics[height=.06\paperheight]{../assets/logos/logo_ailab.pdf}
+\hfill
+\includegraphics[height=.06\paperheight]{../assets/logos/logo_ailab.pdf}
+\hfill
+\includegraphics[height=.06\paperheight]{../assets/logos/logo_ailab.pdf}}}
+
+
+\usetitlestyle[titlebackgroundheight=.078\paperheight,titlegraphictotitledistance=1cm]{conferenceTitleStyle}
+
+
+\begin{document}
+\maketitle
+
+\block{}
+{
+\blindtext
+}
+
+\begin{columns}
+\column{0.4}
+\block{More text}{Text and more text}
+
+\column{0.6}
+\block{Something else}{Here, \blindtext \vspace{4cm}}
+\note[targetoffsetx=-9cm, targetoffsety=-5.5cm, width=0.5\linewidth]{This is a note...}
+\end{columns}
+
+\begin{columns}
+\column{0.5}
+\block{A figure}
+{
+\begin{center}
+	\includegraphics[width=0.2\textheight]{../assets/logos/logo_ailab.pdf}
+\end{center}
+}
+
+\block{Outer Block}{
+\blindtext
+\innerblock{Inner Block}{\blindtext}
+}
+
+
+\column{0.5}
+\block{Description of the figure}{\Large\blindtext[2]}
+\end{columns}
+\end{document}
