@@ -82,10 +82,10 @@
 	\color{titlefgcolor}
 	{\fontsize{100pt}{120pt}\bfseries\selectfont
 	\@title\par
-	\vspace*{.75em}
+	\vspace*{.4em}
 	}
 	{\huge\@author\par
-	\vspace*{.5em}
+	\vspace*{.4em}
 	}
 	{\Large \@institute\par}
 }

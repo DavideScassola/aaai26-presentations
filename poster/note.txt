@@ -1,0 +1,79 @@
+--------------------------------------------------------------------------------------
+The Problem
+Data is precious but often sensitive.
+Synthetic data is the solution: share similar and useful data but preserving privacy
+
+Image:
+Data -> Synthetic Data -> People
+--------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------
+Relational data is a graph
+Records are nodes
+foreign key references are edges
+IIDs are the connected compenents
+
+Image:
+tables to graph ? 
+--------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------
+But generating synthetic relational data is difficult!
+
+Current methods fails at:
+- modelling relationships between any record indirectly connected
+- adapting to any foreign key topology
+---------------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------------
+Graph-Conditional generation:
+- Sample the graph structure with a scalable method
+- Use flow matching (deep generative modelling) to "fill" the empty graph with the features
+- Use a GNN for flow matching
+Image:
+empty to filled graph
+
+Maximally expressive: any record in the same connected component is modelled jointly
+Flexible: any foreign key graph can be used
+Scalable: no need for instantiating (or generating) the edge matrix
+--------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------
+(Variational) Flow Matching
+
+Generation: solving an ODE that maps noise into data
+Training: learn the vector field guiding the ODE by denoising samples with added noise (same as diffusion)
+
+with variational FM a denoising distribution is learned: $p()$
+denoiser can be a fully factorized distribution!
+
+Image of FM
+------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------
+(Variational) Flow Matching
+
+Generation: solving an ODE that maps noise into data
+Training: learn the vector field guiding the ODE by denoising samples with added noise (same as diffusion)
+
+with variational FM a denoising distribution is learned: $p()$
+denoiser can be a fully factorized distribution!
+
+Image of FM
+------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------
+Flow Matching for relational data
+
+Training:
+    Image: sample subgraph from data -> add random noise (according to probability path, sample t) -> denoise -> loss
+
+Generation:
+    Image: sample empty foreign key graph -> fill with random noise -> solve ode by repeatedly applying denoiser -> graph sample
+
+
+with variational FM a denoising distribution is learned: $p()$
+denoiser can be a fully factorized distribution!
+
+Image of FM
+------------------------------------------------------------------------------------

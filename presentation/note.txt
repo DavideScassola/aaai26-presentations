@@ -1,0 +1,83 @@
+The Problem
+- Generating synthetic relational data
+    - Multiple tables
+    - Foreign-key relationships
+- Why?
+    - Privacy: share useful synthetic data while preserving privacy
+    - Data Augmentation
+
+
+What is Relational data
+
+Why it is difficult to generate relational data
+
+iid samples?
+
+Our approach: graph-conditional generation with flow matching
+1. Graph-conditional generation: generate content conditioned on a given structure
+    - modularize the problem
+2. Consider whole connected components as samples
+2. Flow matching: diffusion-like generative model for the whole connected components
+
+Flow matching
+
+Variational Flow matching
+
+Flow matching for relational data
+    - categoricals are embedded in one-hot
+    - forward process
+    - backward process
+
+Denoiser
+    - Fully factorized predictive distributions
+    - GNN to maximize expressiveness and model all dependencies
+    - categoricals are parametrized to model one-hot-encoded variables
+
+Training and sampling algorithms
+    - Training:
+        - Sample connected component
+        - sample t
+        - sample x_t
+        - Loss =  (calculated only on training nodes)
+        - gradient loss
+    - Sampling: Euler-Murayama ODE solver
+
+Experiments
+    - Datasets
+        (tables scheme)
+
+Results
+    - Fidelity: Accuracy of a discriminator trying to distinguish real from fake data, the lowe the accuracy the higher the realism (syntherela benchmark)
+            - XGBoost classifier (with graph-enriched features)
+    - State of the art Results
+    - ablation shows importance of GNN for modelling dependencies
+    - Privacy: DCR analysis does not highlight anomalies
+
+Our Contribution
+    Expressiveness
+    ○ We model whole connected components (no independence
+    assumptions) with flow matching + GNN
+    ○ Generalization achieved through: modular denoiser, GNN embedding
+    size bottleneck, controlling “within sample” generalization
+    Flexibility
+    ○ GNN supports any kind of graph
+    Scalability
+    ○ Flow matching scales with large dimensionalities
+    ○ Avoid dealing with dense adjacency matrix; GNN scales since
+    number of edges is proportional to number of nodes
+
+Limitations:
+    ● Not a foreign-key graph generation method
+    ● Input of the GNN is a whole connected component, it has to fit in memory (batching techniques for GNNs exists but we did not need it)
+    ● Hyperparameter tuning for each dataset
+
+Future Directions:
+    - better engineer the denoiser architecture, we used relatively simple ones
+    - use batching techniques for GNNs
+    - 
+
+Thank you!
+
+
+
+https://mlhonk.substack.com/p/25-flow-matching

@@ -5,6 +5,7 @@
 
 \usepackage[english]{babel}
 \usepackage{microtype}
+\usepackage{enumitem}
 
 %\usepackage[T1]{fontenc}
 %\usepackage[defaultsans,default]{opensans}
@@ -48,39 +49,134 @@
 \newcommand{\titlespace}{\hspace{30pt}} % adjust gap if needed
 
 \title{\centering\boldmath{}Graph-Conditional\titlespace Flow\titlespace Matching\titlespace \\ for\titlespace Relational\titlespace Data\titlespace Generation}
-\author{\centering Davide Scassola\affilmark{1,2}, Sebastiano Saccani\affilmark{2}, and Luca Bortolussi\affilmark{1}}
+\author{\centering Davide Scassola\affilmark{1,2} \hfil Sebastiano Saccani\affilmark{2}  \hfil Luca Bortolussi\affilmark{1}}
 \institute{\centering %
-\affilmark{1} AI\textsc{lab}, University of Trieste, Trieste, Italy \hspace{50pt}
+\affilmark{1} AI \textsc{Lab}, University of Trieste, Trieste, Italy \hspace{50pt}
 \affilmark{2} Aindo SpA, AREA Science Park, Trieste, Italy\\
 }
 
 %\titlegraphic{\includegraphics[height=.08\paperheight]{../assets/logos/logo_ailab.pdf}}
 
-\titlegraphic{\parbox{\titlewidth}{\includegraphics[height=.06\paperheight]{../assets/logos/logo_ailab.pdf}
+\titlegraphic{\centering\parbox{\titlewidth}{\includegraphics[height=.06\paperheight]{../assets/logos/logo_UNITS.png}
 \hfill
 \includegraphics[height=.06\paperheight]{../assets/logos/logo_ailab.pdf}
 \hfill
-\includegraphics[height=.06\paperheight]{../assets/logos/logo_ailab.pdf}}}
+\includegraphics[height=.03\paperheight]{../assets/logos/logo_aindo.png}}}
 
 
-\usetitlestyle[titlebackgroundheight=.078\paperheight,titlegraphictotitledistance=1cm]{conferenceTitleStyle}
+\usetitlestyle[titlebackgroundheight=.09\paperheight,titlegraphictotitledistance=1cm]{conferenceTitleStyle}
 
 
 \begin{document}
 \maketitle
 
-\block{}
-{
-\blindtext
-}
+
+
+
+
+
+
+% -----------------------------------------------------------------------------------------------------
+% \block{SUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUM}
+% {
+%     text text 
+% }
+% -----------------------------------------------------------------------------------------------------
 
 \begin{columns}
-\column{0.4}
-\block{More text}{Text and more text}
+\column{0.5}
 
-\column{0.6}
-\block{Something else}{Here, \blindtext \vspace{4cm}}
-\note[targetoffsetx=-9cm, targetoffsety=-5.5cm, width=0.5\linewidth]{This is a note...}
+% -----------------------------------------------------------------------------------------------------
+\block{1: The Problem}
+{
+Data is precious but often sensitive. How can we share useful information while preserving privacy?
+Synthetic data is the solution: learn a generative model on real data and share new samples.
+Synthetic data is as useful as the original but does not expose sensitive information.
+
+\begin{center}
+	\includegraphics[width=0.45\textwidth]{../assets/images/synthetic_data_infographic.pdf}
+\end{center}
+}
+% -----------------------------------------------------------------------------------------------------
+% -----------------------------------------------------------------------------------------------------
+\block{2: Generating Relational Data is Difficult}{
+  \begin{minipage}[t]{0.48\linewidth}
+    \vspace{0pt}
+    %\setlength{\parskip}{12pt}\setlength{\parindent}{0pt}
+    Relational data = multiple tables (structured data) + links between records.
+
+    \vspace{22pt}
+    
+    Current methods fail at:
+    \begin{itemize}
+      \item Modelling relationships between any record indirectly connected
+      \item Adapting to complex foreign key structures
+    \end{itemize}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.48\linewidth}
+    \vspace{0pt}
+    \centering
+    \includegraphics[width=0.9\textwidth,page=1]{../assets/images/graphics.pdf}
+  \end{minipage}
+}
+% -----------------------------------------------------------------------------------------------------
+% -----------------------------------------------------------------------------------------------------
+\block{3: Relational Data is a Graph}{
+    \begin{itemize}
+        \item Records = nodes
+        \item Foreign key references = edges
+        \item i.i.d. samples = connected components
+    \end{itemize}
+
+    \centering
+    \includegraphics[width=0.45\textwidth,page=2]{../assets/images/graphics_compressed.pdf}
+
+    }
+% -----------------------------------------------------------------------------------------------------
+
+
+
+\column{0.5}
+% -----------------------------------------------------------------------------------------------------
+\block{4: Graph-Conditional generation}{
+    \begin{itemize}
+        \item Sample the graph structure with a scalable method
+        \item Use flow matching (deep generative modelling) to "fill" the empty graph with the features
+        \item Use a GNN for flow matching
+    \end{itemize}
+
+    {\centering
+    \includegraphics[width=0.45\textwidth,page=3]{../assets/images/graphics_compressed.pdf}}
+
+    Advantages:
+    \begin{itemize}
+        \item \textbf{Maximally expressive}: any record in the same connected component is modelled jointly
+        \item \textbf{Flexible}: any foreign key graph can be used
+        \item \textbf{Scalable}: no need for instantiating (or generating) the edge matrix
+    \end{itemize}
+    }
+% -----------------------------------------------------------------------------------------------------
+% -----------------------------------------------------------------------------------------------------
+\block{Flow Matching}
+{
+\textbf{Generation}: solving an ODE that maps noise into data.
+
+\textbf{Training}: learn the vector field guiding the ODE by denoising samples with added noise (same as diffusion).
+
+With variational FM a denoising distribution is learned: $p()$, that can be fully factorized without loss of generality.
+
+{\centering
+\includegraphics[width=0.4\textwidth,page=1]{../assets/images/flow_matching.pdf}
+}
+}
+% -----------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+%\note[targetoffsetx=-9cm, targetoffsety=-5.5cm, width=0.5\linewidth]{This is a note...}
 \end{columns}
 
 \begin{columns}
@@ -88,7 +184,7 @@
 \block{A figure}
 {
 \begin{center}
-	\includegraphics[width=0.2\textheight]{../assets/logos/logo_ailab.pdf}
+	\includegraphics[width=0.2\textheight]{../assets/images/synthetic_data_infographic.pdf}
 \end{center}
 }
 
@@ -100,5 +196,26 @@
 
 \column{0.5}
 \block{Description of the figure}{\Large\blindtext[2]}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \end{columns}
 \end{document}
