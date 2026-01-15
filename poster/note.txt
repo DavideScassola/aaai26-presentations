@@ -51,18 +51,6 @@ Image of FM
 ------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------
-(Variational) Flow Matching
-
-Generation: solving an ODE that maps noise into data
-Training: learn the vector field guiding the ODE by denoising samples with added noise (same as diffusion)
-
-with variational FM a denoising distribution is learned: $p()$
-denoiser can be a fully factorized distribution!
-
-Image of FM
-------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------------------
 Flow Matching for relational data
 
 Training:

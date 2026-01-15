@@ -66,9 +66,9 @@
 \newdimen\TP@titlebackgroundheight
 \define@key{title}{titlebackgroundheight}{\TP@titlebackgroundheight=#1}
 \definetitlestyle{conferenceTitleStyle}{
-	width=\TP@visibletextwidth, roundedcorners=0, linewidth=2pt, innersep=40pt,
-	titletotopverticalspace=25mm, titletoblockverticalspace=15mm,
-	titlebackgroundheight=10cm,,
+    width=\TP@visibletextwidth, roundedcorners=0, linewidth=2pt, innersep=40pt,
+    titletotopverticalspace=0mm, titletoblockverticalspace=10mm,
+    titlebackgroundheight=10cm,,
 %	titlegraphictotitledistance=-100pt,
 }{
 }
@@ -80,12 +80,12 @@
 
 \gdef\TP@maketitle{%
 	\color{titlefgcolor}
-	{\fontsize{100pt}{120pt}\bfseries\selectfont
+	{\fontsize{85pt}{90pt}\bfseries\selectfont
 	\@title\par
-	\vspace*{.4em}
+	\vspace*{.3em}
 	}
 	{\huge\@author\par
-	\vspace*{.4em}
+	\vspace*{.3em}
 	}
 	{\Large \@institute\par}
 }
