@@ -7,6 +7,8 @@
 \LoadClass{tikzposter}
 \tikzposterlatexaffectionproofoff
 
+\setlength{\TP@blockverticalspace}{8mm} % Set default block spacing
+
 \usetikzlibrary{math}
 
 \RequirePackage{tabularx}
@@ -50,7 +52,7 @@
 	titlewidthscale=1, bodywidthscale=1,titleleft,
 	titleoffsetx=0pt, titleoffsety=0pt, bodyoffsetx=0mm, bodyoffsety=0mm,
 	bodyverticalshift=0mm, roundedcorners=0, linewidth=0pt,
-	titleinnersep=8mm, %bodyinnersep=1cm
+	titleinnersep=8mm, bodyinnersep=8mm
 }{
 	\draw[color=framecolor, fill=blockbodybgcolor,
 	rounded corners=\blockroundedcorners] (blockbody.south west)
@@ -80,7 +82,7 @@
 
 \gdef\TP@maketitle{%
 	\color{titlefgcolor}
-	{\fontsize{85pt}{90pt}\bfseries\selectfont
+	{\fontsize{80pt}{95pt}\bfseries\selectfont
 	\@title\par
 	\vspace*{.3em}
 	}
