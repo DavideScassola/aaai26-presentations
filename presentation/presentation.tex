@@ -221,7 +221,8 @@ from the original graph)
   \item Initialize every node with Gaussian noise $X_0 \sim \mathcal{N}(0, I)$
   \item Solve the ODE numerically using the learned velocity, parametrized by the learned denoiser:
   \begin{equation*}
-v_t^\theta(X_t) = \mathbb{E}_{\mathbf{X}_1 \sim \textcolor{red}{p_\theta(X_1 \mid  X_t, G)}} \left[ \textcolor{blue}{u_t(X_t \mid X_1)} \right]  \end{equation*}
+  v_t^\theta(X_t) = \mathbb{E}_{\mathbf{X}_1 \sim \textcolor{red}{p_\theta(X_1 \mid  X_t, G)}} \left[ \textcolor{blue}{u_t(X_t \mid X_1)} \right] 
+  \end{equation*}
 \end{enumerate}
 
 \end{frame}
