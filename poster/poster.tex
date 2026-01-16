@@ -162,7 +162,7 @@ It is as useful as the original but does not expose sensitive information.
     \textbf{Our approach}:
     \begin{itemize}
         \item Sample the graph structure $G$ with a scalable method
-        \item Use flow matching to "fill" the empty graph with the content $X$
+        \item Use flow matching to "fill" the empty graph with content $X$
         %\item Use a GNN for flow matching
     \end{itemize}
 
@@ -173,7 +173,7 @@ It is as useful as the original but does not expose sensitive information.
     \begin{itemize}
         \item \textbf{Expressive}: records in a connected component are modelled jointly
         \item \textbf{Flexible}: any foreign key graph can be used
-        \item \textbf{Scalable}: flow matching scales to large dimensionalities + no need for instantiating (or generating) the edge matrix
+        \item \textbf{Scalable}: flow matching scales to large dimensionalities + no need for materializing (or generating) the dense adjacency matrix
     \end{itemize}
     }
 % -----------------------------------------------------------------------------------------------------
@@ -184,11 +184,13 @@ It is as useful as the original but does not expose sensitive information.
 {
 Flow Matching (FM) \citep{flow_matching} is a diffusion-like technique to learn ODEs that transform a simple distribution into a complex one.
 
-\textbf{Training}: learn the vector field guiding the ODE by denoising samples with added noise (same as diffusion).
+\bigskip
+
+\textbf{Training}: learn a denoiser by denoising samples with added noise.
 \begin{center}
 \includegraphics[width=0.45\textwidth,page=1]{../assets/images/training.pdf}
 \end{center}
-\textbf{Generation}: solving an ODE that maps noise into data using the learnt vector field: $v_t^\theta(X_t) = \mathbb{E}_{\mathbf{X}_1 \sim \textcolor{red}{p_\theta(X_1 \mid  X_t, G)}} \left[ \textcolor{blue}{u_t(X_t \mid X_1)} \right] $
+\textbf{Generation}: start from noise and solve the ODE using the learnt vector field: $v_t^\theta(X_t) = \mathbb{E}_{\mathbf{X}_1 \sim \textcolor{black}{p_\theta(X_1 \mid  X_t, G)}} \left[ \textcolor{black}{u_t(X_t \mid X_1)} \right] $ where $u_t$ depends on $p_t(X_t \mid X_1)$.
 \begin{center}
 \includegraphics[width=0.45\textwidth,page=1]{../assets/images/sampling.pdf}
 \end{center}
@@ -199,14 +201,14 @@ Flow Matching (FM) \citep{flow_matching} is a diffusion-like technique to learn 
 % -----------------------------------------------------------------------------------------------------
 \block{4: GNN-Based Denoiser}
 {
-With variational FM \citep{eijkelboom2024variational} a denoising distribution is learnt: $p_\theta$, that can be fully factorized without loss of generality.
+With variational FM \citep{eijkelboom2024variational} a denoising distribution $p_\theta$ is learnt, which expected value we compute in the following way:
 \begin{itemize}
   \item A GNN computes node embeddings for each record
   \begin{equation*}
     \mathbf{\varepsilon}_t^i = \text{GNN}_\theta\left(X_t, G, t \right)^i
   \end{equation*}
 
-  \item MLPs exploit node embeddings to denoise records
+  \item MLPs exploit node embeddings (graph context) to denoise records
   \begin{equation*}
     \hat{x}_1^i = \text{MLP}_\theta\left(x_t^i, \mathbf{\varepsilon}_t^i, t \right)
   \end{equation*}
@@ -215,7 +217,6 @@ With variational FM \citep{eijkelboom2024variational} a denoising distribution i
 \begin{center}
     \includegraphics[width=0.45\textwidth, page=1]{../assets/images/denoiser_shorter.pdf}
 \end{center}
-
 }
 % -----------------------------------------------------------------------------------------------------
 
