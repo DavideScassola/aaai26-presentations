@@ -1,4 +1,5 @@
 %! TEX program = pdflatex --extra-mem-bot=50000000
+\pdfobjcompresslevel=0
 \documentclass[10pt,aspectratio=169]{beamer}
 % For 16:10, use aspectratio=1610
 % For 4:3 (default), use aspectratio=43
@@ -47,13 +48,17 @@
   \inst{2} Aindo SpA, AREA Science Park, Trieste, Italy\\
 }
 \titlegraphic{%
-  \vspace{-0.3cm}
   \centering
-  \begin{tabular}{ccc}
-    \includegraphics[height=1.2cm]{../assets/logos/logo_UNITS.png} &
-    \includegraphics[height=1.2cm]{../assets/logos/logo_ailab.pdf} &
-    \includegraphics[height=0.8cm]{../assets/logos/logo_aindo.png}
-  \end{tabular}
+  \parbox{0.8\textwidth}{%
+    \begin{minipage}[c][1.5cm][c]{0.8\textwidth}
+      \centering
+      \raisebox{-0.5\height}{\includegraphics[height=1.2cm]{../assets/logos/logo_UNITS.png}}%
+      \hspace*{0.07\textwidth}%
+      \raisebox{-0.5\height}{\includegraphics[height=1.2cm]{../assets/logos/logo_ailab.pdf}}%
+      \hspace*{0.07\textwidth}%
+      \raisebox{-0.5\height}{\includegraphics[height=0.9cm]{../assets/logos/logo_aindo.png}}%
+    \end{minipage}%
+  }%
 }
 
 \begin{document}
@@ -97,9 +102,9 @@
   Generating synthetic relational data is difficult:
   \begin{itemize}
     \item Modeling relationships across tables: statistical dependencies of any record with any other record directly or indirectly connected to it through foreign-key relationships
-    \item Generating realistic foreign key structures
-    \item Scaling to large datasets
-    %\item Difficulties of tabular data generation: heterogeneous data types, complex marginals and dependencies
+    %\item Generating realistic foreign key structures
+    \item Adapting to complex foreign key structures
+    \item Tabular data generation: heterogeneous data types, complex marginals and dependencies
   \end{itemize}
 
   Limitations of existing methods:
@@ -125,7 +130,7 @@
   \end{figure}
 
   \begin{itemize}
-    \item The foreign key graph can be complex.
+    \item The foreign key graph can be large and complex.
     \item i.i.d samples? Connected components of the graph.
   \end{itemize}
   
@@ -137,26 +142,44 @@
 
 % -------------------------------------------------------------------------------------
 \begin{frame}[fragile]{Our Approach}
-  Graph-conditional generation with flow matching:
-  \begin{enumerate}
-    \item Graph-conditional generation: generate content conditioned on a given structure
-    \begin{equation*}
+ Graph-conditional generation with flow matching:
+     \begin{equation*}
       p(G, X) = p(G) p(X \mid G)
     \end{equation*}
-    \item Flow matching: diffusion-like generative model for whole connected components $p(X \mid G)$
+
+  \begin{enumerate}
+    \item Generate the foreign-key graph $G \sim p(G)$ using a scalable method
+    \item Use flow matching (diffusion-like generative model) for generating whole connected components $(X, G)$ by "filling" the empty foreign key graph with $G$ content $X$
   \end{enumerate}
 
-  \begin{figure}
+  \begin{center}
         \includegraphics[width=0.7\textwidth, page=3]{../assets/images/graphics_compressed.pdf}
     %\caption{Relational database as a graph.}
-  \end{figure}
+  \end{center}
 
-\end{frame}
+ \end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Graph-conditional Flow Matching}
+  This approach has three main advantages:
+  \begin{itemize}
+    \item \textbf{Expressive}: records in a connected component are modelled jointly
+    \item \textbf{Flexible}: any foreign key graph can be used
+    \item \textbf{Scalable}: flow matching scales to large dimensionalities + no need for materializing (or generating) the dense adjacency matrix
+  \end{itemize}
+
+  \begin{center}
+        \includegraphics[width=0.75\textwidth, page=3]{../assets/images/graphics_compressed.pdf}
+    %\caption{Relational database as a graph.}
+  \end{center}
+
+ \end{frame}
 % -------------------------------------------------------------------------------------
 
 % -------------------------------------------------------------------------------------
 \begin{frame}[fragile]{(Variational) Flow Matching \citep{flow_matching, eijkelboom2024variational}}
-  Continuous Normalizing Flows (ODEs) + diffusion-like training:
+  Flow Matching = Continuous Normalizing Flows (ODEs) + diffusion-like training
   \begin{itemize}
     \item \textbf{Sampling}: solve the ODE to map Gaussian noise to data:
   \begin{equation*}
@@ -171,8 +194,10 @@
 
   \begin{figure}
     \includegraphics[width=0.95\textwidth]{../assets/images/flow_matching2.png}
-    \caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
+    %\caption{Image from https://mlhonk.substack.com/p/25-flow-matching.}
   \end{figure}
+  \small
+  (Image from https://mlhonk.substack.com/p/25-flow-matching.)
 
 \end{frame}
 % -------------------------------------------------------------------------------------
@@ -207,13 +232,24 @@
 % % -------------------------------------------------------------------------------------
 
 % -------------------------------------------------------------------------------------
-\begin{frame}[fragile]{Flow Matching for Relational Data}
+\begin{frame}[fragile]{Flow Matching for Relational Data: Training}
 \textbf{Training}:
 \begin{itemize}
   \item Define a conditional probability path $\textcolor{blue}{p_t(X_t \mid X_1, G) = \prod p_t^i(x_t^i \mid x_1^i)}$ independently for each feature.
   \item Learn a denoiser $\textcolor{red}{p_\theta(X_1 \mid X_t, G) = \prod p_\theta^i(x_1^i \mid X_t, G)}$
   \item Categoricals are one-hot encoded, and denoiser distribution is either a categorical or a Gaussian depending on the feature type
 \end{itemize}
+
+  \begin{figure}
+    \includegraphics[width=0.75\textwidth]{../assets/images/training.pdf}
+  \end{figure}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Flow Matching for Relational Data: Sampling}
+
 \textbf{Sampling}:
 \begin{enumerate}
   \item Generate the foreign-key graph $G \sim p(G)$ (we just re-sample connected components
@@ -224,6 +260,10 @@ from the original graph)
   v_t^\theta(X_t) = \mathbb{E}_{\mathbf{X}_1 \sim \textcolor{red}{p_\theta(X_1 \mid  X_t, G)}} \left[ \textcolor{blue}{u_t(X_t \mid X_1)} \right] 
   \end{equation*}
 \end{enumerate}
+
+  \begin{figure}
+    \includegraphics[width=0.8\textwidth]{../assets/images/sampling.pdf}
+  \end{figure}
 
 \end{frame}
 % -------------------------------------------------------------------------------------
@@ -277,8 +317,9 @@ train and validation nodes
 % -------------------------------------------------------------------------------------
 \begin{frame}[fragile]{Results: Fidelity}
   \begin{itemize}
-    \item \textbf{Fidelity}: accuracy of an XGBoost classifier, that learned to distinguish real from generated rows (the lower the accuracy the higher the realism)
-    \item Rows are enriched with aggregated informations from connected rows
+    \item We use the SyntheRela benchmark library \citep{hudovernik2024benchmarking}.
+    \item Fidelity is measured as the accuracy of an XGBoost classifier, trained to distinguish real from generated records (the lower the better).
+    \item Records are enriched with aggregated informations from connected records
     \item State-of-the-art performances
     \item Ablation shows importance of GNN for modeling dependencies
   \end{itemize}
@@ -310,8 +351,8 @@ SDV & $\approx 1$ & $0.98 \pm 0.01$ & $\approx 1$ & - & $0.98 \pm 0.003$ & $0.90
 % -------------------------------------------------------------------------------------
 \begin{frame}[fragile]{Results: Privacy and Efficiency}
   \begin{itemize}
-    \item \textbf{Privacy}: DCR (Distance to Closest Record) analysis does not highlight privacy leaks, despite copying/resampling the foreign-key graph.
-    \item \textbf{Efficiency}: Training and generation are fast (on a single NVIDIA RTX A5000)
+    \item \textbf{Privacy}: DCR (Distance to Closest Record) analysis does not highlight privacy leaks.
+    \item \textbf{Efficiency}: Training and generation are fast. \footnote{on a single NVIDIA RTX A5000}
   \end{itemize}
 
 \begin{table}[h]
@@ -341,20 +382,20 @@ Walmart               & $1$m $48$s \\
 
   \textbf{Expressiveness}
   \begin{itemize}
-    \item Model for whole connected components (no independence
-    assumptions) with flow matching + GNN
+    \item Model for whole connected components (no independence assumptions) with flow matching + GNN
     \item Generalization through modular denoiser, GNN embedding size bottleneck, controlling “within sample” generalization
   \end{itemize}
 
   \textbf{Flexibility}
   \begin{itemize}
-    \item GNN supports any kind of graph
+    \item GNN denoiser supports any kind of graph.
   \end{itemize}
 
   \textbf{Scalability}
   \begin{itemize}
-    \item Flow matching scales with large dimensionalities
-    \item Avoid dealing with dense adjacency matrix; GNN scales since number of edges is proportional to number of nodes
+    \item Flow matching scales with large dimensionalities.
+    \item Avoid dealing with dense adjacency matrix.
+    \item GNN scales since number of edges is proportional to number of nodes.
   \end{itemize}
 
 \end{frame}
@@ -396,341 +437,182 @@ Walmart               & $1$m $48$s \\
 % -------------------------------------------------------------------------------------
 
 
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Datasets Details (1)}
+
+  \scriptsize
+  \begin{table}[ht]
+\centering
+\caption{\small Overview of the datasets used in the experiments, showing for each table of each dataset the number of rows, the number of features (feature columns) and tables referred by foreign keys (the parent tables).}
+
+\begin{tabular}{l l r r l}
+\toprule
+\textbf{Dataset} & \textbf{Table} & \textbf{\# Rows} & \textbf{\# Features} & \textbf{Foreign Keys} \\
+\cmidrule(lr){1-5}
+\multirow{2}{*}{AirBnB} 
+  & users    & $10,000$  & $15$ & -- \\
+  & sessions & $47,217$  & $5$  & users \\
+\addlinespace
+\cmidrule(lr){1-5}
+\multirow{5}{*}{Biodegradability} 
+  & molecule & $328$     & $3$  & -- \\
+  & group    & $1,736$   & $1$  & -- \\
+  & atom     & $6,568$   & $1$  & molecule \\
+  & gmember  & $6,647$   & --  & atom, group \\
+  & bond     & $6,616$   & $1$  & atom1, atom2 \\
+\addlinespace
+\cmidrule(lr){1-5}
+\multirow{3}{*}{CORA} 
+  & paper    & $2,708$   & $1$  & -- \\
+  & content  & $49,216$  & $1$  & paper \\
+  & cites    & $5,429$   & --  & paper1, paper2 \\
+\bottomrule
+\end{tabular}
 
 
+\end{table}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
 
 
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Datasets Details (2)}
+
+  \scriptsize
+  \begin{table}[ht]
+\centering
+\caption{\small Overview of the datasets used in the experiments, showing for each table of each dataset the number of rows, the number of features (feature columns) and tables referred by foreign keys (the parent tables).}
+
+\begin{tabular}{l l r r l}
+\toprule
+\textbf{Dataset} & \textbf{Table} & \textbf{\# Rows} & \textbf{\# Features} & \textbf{Foreign Keys} \\
+\cmidrule(lr){1-5}
+\multirow{7}{*}{IMDB MovieLens} 
+  & users            & $6,039$    & $3$  & -- \\
+  & movies           & $3,832$    & $4$  & -- \\
+  & actors           & $98,690$   & $2$  & -- \\
+  & directors        & $2,201$    & $2$  & -- \\
+  & ratings          & $996,159$  & $1$  & movie, user \\
+  & movies2actors    & $138,349$  & $1$  & movie, actor \\
+  & movies2directors & $4,141$    & $1$  & movie, director \\
+\addlinespace
+\cmidrule(lr){1-5}
+\multirow{2}{*}{Rossmann} 
+  & store      & $1,115$   & $9$  & -- \\
+  & historical & $57,970$  & $7$  & store \\
+\addlinespace
+\cmidrule(lr){1-5}
+\multirow{3}{*}{Walmart} 
+  & stores    & $45$     & $2$  & -- \\
+  & features  & $225$    & $11$ & store \\
+  & depts     & $15,047$ & $4$  & store \\
+\bottomrule
+\end{tabular}
 
 
+\end{table}
+
+\end{frame}
+% -------------------------------------------------------------------------------------
 
 
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{GNN Architecture Details}
 
+\textbf{Core Approach:}
+\begin{itemize}
+  \item GNNs compute node embeddings $\boldsymbol{\varepsilon}^i$ for each record $i$
+  \item Handles heterogeneous graphs with multiple node/edge types
+  \item Edge-type-specific convolutions aggregate neighbors by table type
+\end{itemize}
 
-
-
-
-
-
-
-
-
-
-
-% \begin{frame}[fragile]{Metropolis}
-
-%   The \themename theme is a Beamer theme with minimal visual noise
-%   inspired by the \href{https://github.com/hsrmbeamertheme/hsrmbeamertheme}{\textsc{hsrm} Beamer
-%   Theme} by Benjamin Weiss.
-
-%   Enable the theme by loading
-
-%   \begin{verbatim}    \documentclass{beamer}
-%     \usetheme{metropolis}\end{verbatim}
-
-%   Note, that you have to have Mozilla's \emph{Fira Sans} font and XeTeX
-%   installed to enjoy this wonderful typography.
-% \end{frame}
-
-% \begin{frame}[fragile]{Metropolis}
-
-%   The \themename theme is a Beamer theme with minimal visual noise
-%   inspired by the \href{https://github.com/hsrmbeamertheme/hsrmbeamertheme}{\textsc{hsrm} Beamer
-%   Theme} by Benjamin Weiss.
-
-%   Enable the theme by loading
-
-%   \begin{verbatim}    \documentclass{beamer}
-%     \usetheme{metropolis}\end{verbatim}
-
-%   Note, that you have to have Mozilla's \emph{Fira Sans} font and XeTeX
-%   installed to enjoy this wonderful typography.
-% \end{frame}
-% \begin{frame}[fragile]{Sections}
-%   Sections group slides of the same topic
-
-%   \begin{verbatim}    \section{Elements}\end{verbatim}
-
-%   for which \themename provides a nice progress indicator \ldots
+\textbf{Two Architecture Variants:}
+\begin{columns}[T,onlytextwidth]
+  \column{0.48\textwidth}
+  \textit{GATv2-based:}
+  \begin{itemize}
+    \item Attention mechanism
+    \item Residual connections
+    \item Hidden dim: 100
+    \item Used for: AirBnB, Rossmann, Walmart
+  \end{itemize}
   
-% \end{frame}
+  \column{0.48\textwidth}
+  \textit{GIN-based:}
+  \begin{itemize}
+    \item 3 GIN layers
+    \item MLP width: 100
+    \item Embedding size: 20 or 50
+    \item Used for: CORA, IMDB, Biodegradability
+  \end{itemize}
+\end{columns}
 
-% \section{Titleformats}
+\end{frame}
+% -------------------------------------------------------------------------------------
 
-% \begin{frame}{Metropolis titleformats}
-% 	\themename supports 4 different titleformats:
-% 	\begin{itemize}
-% 		\item Regular
-% 		\item \textsc{Smallcaps}
-% 		\item \textsc{allsmallcaps}
-% 		\item ALLCAPS
-% 	\end{itemize}
-% 	They can either be set at once for every title type or individually.
-% \end{frame}
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Table-specific Denoisers}
 
-% \subsection{Tricks}
+\textbf{Architecture:}
+\begin{itemize}
+  \item Each table $k$ has a dedicated MLP denoiser $f^k$ that predicts clean records:
+  \begin{equation*}
+  \hat{\mathbf{x}}^i_1 = f^{k_i}(\mathbf{x}^i_t, t, \boldsymbol{\varepsilon}^i_t)
+  \end{equation*}
+  \item \textbf{Inputs}: noisy record $\mathbf{x}^i_t$ + time embedding $t$ + node embedding $\boldsymbol{\varepsilon}^i_t$
+  \item \textbf{Design}: Layer Normalization + SiLU activations + linear output
+  \item \textbf{Output}: Softmax for categoricals, linear for continuous features
+\end{itemize}
 
-% {
-%     \metroset{titleformat frame=smallcaps}
-% \begin{frame}{Small caps}
-% 	This frame uses the \texttt{smallcaps} titleformat.
+\textbf{Hyperparameters:}
+\begin{itemize}
+  \item 2-3 hidden layers per table
+  \item Width: 10-1000 hidden units (dataset-specific)
+\end{itemize}
 
-% 	\begin{alertblock}{Potential Problems}
-% 		Be aware, that not every font supports small caps. If for example you typeset your presentation with pdfTeX and the Computer Modern Sans Serif font, every text in smallcaps will be typeset with the Computer Modern Serif font instead.
-% 	\end{alertblock}
-% \end{frame}
-% }
+\end{frame}
+% -------------------------------------------------------------------------------------
 
-% {
-% \metroset{titleformat frame=allsmallcaps}
-% \begin{frame}{All small caps}
-% 	This frame uses the \texttt{allsmallcaps} titleformat.
+% -------------------------------------------------------------------------------------
+\begin{frame}[fragile]{Tuning Node Embedding Size}
 
-% 	\begin{alertblock}{Potential problems}
-% 		As this titleformat also uses smallcaps you face the same problems as with the \texttt{smallcaps} titleformat. Additionally this format can cause some other problems. Please refer to the documentation if you consider using it.
+\textbf{Key Tradeoff:}
+\begin{itemize}
+  \item Too large → memorization and privacy leaks
+  \item Too small → limited expressiveness
+  \item Our choice: 2-10 dimensions (conservative for privacy)
+\end{itemize}
 
-% 		As a rule of thumb: Just use it for plaintext-only titles.
-% 	\end{alertblock}
-% \end{frame}
-% }
+\begin{figure}[ht]
+    \centering
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../assets/images/embedding_vs_val_IMDB_MovieLens.pdf}
+        
+        (a) IMDB MovieLens
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../assets/images/embedding_vs_val_AirBnB.pdf}
+        
+        (b) Airbnb
+    \end{minipage}
+    
+    \vspace{0.3em}
+    Validation loss vs. GNN embedding size (0 = no GNN)
+\end{figure}
 
-% {
-% \metroset{titleformat frame=allcaps}
-% \begin{frame}{All caps}
-% 	This frame uses the \texttt{allcaps} titleformat.
+%\textbf{Observation:} IMDB degrades with larger embeddings; Airbnb less sensitive (different GNN).
 
-% 	\begin{alertblock}{Potential Problems}
-% 		This titleformat is not as problematic as the \texttt{allsmallcaps} format, but basically suffers from the same deficiencies. So please have a look at the documentation if you want to use it.
-% 	\end{alertblock}
-% \end{frame}
-% }
+\end{frame}
+% -------------------------------------------------------------------------------------
 
-% \section{Elements}
 
-% \begin{frame}[fragile]{Typography}
-%       \begin{verbatim}The theme provides sensible defaults to
-% \emph{emphasize} text, \alert{accent} parts
-% or show \textbf{bold} results.\end{verbatim}
 
-%   \begin{center}becomes\end{center}
 
-%   The theme provides sensible defaults to \emph{emphasize} text,
-%   \alert{accent} parts or show \textbf{bold} results.
-% \end{frame}
 
-% \begin{frame}{Font feature test}
-%   \begin{itemize}
-%     \item Regular
-%     \item \textit{Italic}
-%     \item \textsc{SmallCaps}
-%     \item \textbf{Bold}
-%     \item \textbf{\textit{Bold Italic}}
-%     \item \textbf{\textsc{Bold SmallCaps}}
-%     \item \texttt{Monospace}
-%     \item \texttt{\textit{Monospace Italic}}
-%     \item \texttt{\textbf{Monospace Bold}}
-%     \item \texttt{\textbf{\textit{Monospace Bold Italic}}}
-%   \end{itemize}
-% \end{frame}
-
-% \begin{frame}{Lists}
-%   \begin{columns}[T,onlytextwidth]
-%     \column{0.33\textwidth}
-%       Items
-%       \begin{itemize}
-%         \item Milk \item Eggs \item Potatos
-%       \end{itemize}
-
-%     \column{0.33\textwidth}
-%       Enumerations
-%       \begin{enumerate}
-%         \item First, \item Second and \item Last.
-%       \end{enumerate}
-
-%     \column{0.33\textwidth}
-%       Descriptions
-%       \begin{description}
-%         \item[PowerPoint] Meeh. \item[Beamer] Yeeeha.
-%       \end{description}
-%   \end{columns}
-% \end{frame}
-% \begin{frame}{Animation}
-%   \begin{itemize}[<+- | alert@+>]
-%     \item \alert<4>{This is\only<4>{ really} important}
-%     \item Now this
-%     \item And now this
-%   \end{itemize}
-% \end{frame}
-% \begin{frame}{Figures}
-%   \begin{figure}
-%     \newcounter{density}
-%     \setcounter{density}{20}
-%     \begin{tikzpicture}
-%       \def\couleur{alerted text.fg}
-%       \path[coordinate] (0,0)  coordinate(A)
-%                   ++( 90:5cm) coordinate(B)
-%                   ++(0:5cm) coordinate(C)
-%                   ++(-90:5cm) coordinate(D);
-%       \draw[fill=\couleur!\thedensity] (A) -- (B) -- (C) --(D) -- cycle;
-%       \foreach \x in {1,...,40}{%
-%           \pgfmathsetcounter{density}{\thedensity+20}
-%           \setcounter{density}{\thedensity}
-%           \path[coordinate] coordinate(X) at (A){};
-%           \path[coordinate] (A) -- (B) coordinate[pos=.10](A)
-%                               -- (C) coordinate[pos=.10](B)
-%                               -- (D) coordinate[pos=.10](C)
-%                               -- (X) coordinate[pos=.10](D);
-%           \draw[fill=\couleur!\thedensity] (A)--(B)--(C)-- (D) -- cycle;
-%       }
-%     \end{tikzpicture}
-%     \caption{Rotated square from
-%     \href{http://www.texample.net/tikz/examples/rotated-polygons/}{texample.net}.}
-%   \end{figure}
-% \end{frame}
-% \begin{frame}{Tables}
-%   \begin{table}
-%     \caption{Largest cities in the world (source: Wikipedia)}
-%     \begin{tabular}{lr}
-%       \toprule
-%       City & Population\\
-%       \midrule
-%       Mexico City & 20,116,842\\
-%       Shanghai & 19,210,000\\
-%       Peking & 15,796,450\\
-%       Istanbul & 14,160,467\\
-%       \bottomrule
-%     \end{tabular}
-%   \end{table}
-% \end{frame}
-% \begin{frame}{Blocks}
-%   Three different block environments are pre-defined and may be styled with an
-%   optional background color.
-
-%   \begin{columns}[T,onlytextwidth]
-%     \column{0.5\textwidth}
-%       \begin{block}{Default}
-%         Block content.
-%       \end{block}
-
-%       \begin{alertblock}{Alert}
-%         Block content.
-%       \end{alertblock}
-
-%       \begin{exampleblock}{Example}
-%         Block content.
-%       \end{exampleblock}
-
-%     \column{0.5\textwidth}
-
-%       \metroset{block=fill}
-
-%       \begin{block}{Default}
-%         Block content.
-%       \end{block}
-
-%       \begin{alertblock}{Alert}
-%         Block content.
-%       \end{alertblock}
-
-%       \begin{exampleblock}{Example}
-%         Block content.
-%       \end{exampleblock}
-
-%   \end{columns}
-% \end{frame}
-% \begin{frame}{Math}
-%   \begin{equation*}
-%     e = \lim_{n\to \infty} \left(1 + \frac{1}{n}\right)^n
-%   \end{equation*}
-% \end{frame}
-% \begin{frame}{Line plots}
-%   \begin{figure}
-%     \begin{tikzpicture}
-%       \begin{axis}[
-%         mlineplot,
-%         width=0.9\textwidth,
-%         height=6cm,
-%       ]
-
-%         \addplot {sin(deg(x))};
-%         \addplot+[samples=100] {sin(deg(2*x))};
-
-%       \end{axis}
-%     \end{tikzpicture}
-%   \end{figure}
-% \end{frame}
-% \begin{frame}{Bar charts}
-%   \begin{figure}
-%     \begin{tikzpicture}
-%       \begin{axis}[
-%         mbarplot,
-%         xlabel={Foo},
-%         ylabel={Bar},
-%         width=0.9\textwidth,
-%         height=6cm,
-%       ]
-
-%       \addplot plot coordinates {(1, 20) (2, 25) (3, 22.4) (4, 12.4)};
-%       \addplot plot coordinates {(1, 18) (2, 24) (3, 23.5) (4, 13.2)};
-%       \addplot plot coordinates {(1, 10) (2, 19) (3, 25) (4, 15.2)};
-
-%       \legend{lorem, ipsum, dolor}
-
-%       \end{axis}
-%     \end{tikzpicture}
-%   \end{figure}
-% \end{frame}
-% \begin{frame}{Quotes}
-%   \begin{quote}
-%     Veni, Vidi, Vici
-%   \end{quote}
-% \end{frame}
-
-% {%
-% \setbeamertemplate{frame footer}{My custom footer}
-% \begin{frame}[fragile]{Frame footer}
-%     \themename defines a custom beamer template to add a text to the footer. It can be set via
-%     \begin{verbatim}\setbeamertemplate{frame footer}{My custom footer}\end{verbatim}
-% \end{frame}
-% }
-
-% \begin{frame}{References}
-%   Some references to showcase [allowframebreaks] \cite{knuth92,ConcreteMath,Simpson,Er01,greenwade93}
-% \end{frame}
-
-% \section{Conclusion}
-
-% \begin{frame}{Summary}
-
-%   Get the source of this theme and the demo presentation from
-
-%   \begin{center}\url{github.com/matze/mtheme}\end{center}
-
-%   The theme \emph{itself} is licensed under a
-%   \href{http://creativecommons.org/licenses/by-sa/4.0/}{Creative Commons
-%   Attribution-ShareAlike 4.0 International License}.
-
-%   \begin{center}\ccbysa\end{center}
-
-% \end{frame}
-
-% {\setbeamercolor{palette primary}{fg=black, bg=yellow}
-% \begin{frame}[standout]
-%   Questions?
-% \end{frame}
-% }
-
-% \appendix
-
-% \begin{frame}[fragile]{Backup slides}
-%   Sometimes, it is useful to add slides at the end of your presentation to
-%   refer to during audience questions.
-
-%   The best way to do this is to include the \verb|appendixnumberbeamer|
-%   package in your preamble and call \verb|\appendix| before your backup slides.
-
-%   \themename will automatically turn off slide numbering and progress bars for
-%   slides in the appendix.
-% \end{frame}
 
 
 
